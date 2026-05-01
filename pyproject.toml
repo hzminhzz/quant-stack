@@ -1,0 +1,29 @@
+[project]
+name = "quant-factory"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "ccxt>=4.5.51",
+    "crawl4ai>=0.8.6",
+    "dspy-ai>=3.2.0",
+    "duckdb>=1.5.2",
+    "ipywidgets>=8.1.8",
+    "jupyterlab>=4.5.6",
+    "lancedb>=0.30.2",
+    "logfire>=4.32.1",
+    "matplotlib>=3.10.9",
+    "mcp>=1.27.0",
+    "nbformat>=5.10.4",
+    "numba>=0.65.1",
+    "numpy>=2.4.4",
+    "pandas>=3.0.2",
+    "plotly>=6.7.0",
+    "polars>=1.40.1",
+    "pyarrow>=24.0.0",
+    "pydantic-ai>=1.87.0",
+    "pyzmq>=27.1.0",
+    "streamlit>=1.57.0",
+    "taskiq>=0.12.2",
+]
