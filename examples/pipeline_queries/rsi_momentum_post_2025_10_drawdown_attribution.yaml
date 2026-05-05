@@ -1,0 +1,18 @@
+# RSI momentum drawdown attribution query
+strategy: rsi_momentum
+symbols: [BTC-USDT, ETH-USDT, BNB-USDT]
+timeframe: 4h
+champion_parameters:
+  rsi_period: 14
+  rsi_upper: 70
+  rsi_lower: 30
+  rsi_exit: 50
+trend_filter:
+  id: trend_strength_filter
+  params: { sma_period_fast: 20, sma_period_slow: 50 }
+diagnostic:
+  drawdown_start: "2025-10-01T00:00:00Z"
+  fee_bps: 5
+  slippage_bps: 2
+  execution_lag_bars: 1
+  initial_equity: 1.0

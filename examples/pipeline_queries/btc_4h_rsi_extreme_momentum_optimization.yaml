@@ -1,0 +1,28 @@
+# BTC 4h RSI extreme-momentum optimization query
+strategy: rsi_momentum
+symbol: BTC-USDT
+timeframe: 4h
+champion_parameters:
+  rsi_period: 14
+  rsi_upper: 70
+  rsi_lower: 30
+  rsi_exit: 50
+backtest:
+  fee_bps: 5
+  slippage_bps: 2
+  execution_lag_bars: 1
+search_space:
+  rsi_period: [7, 10, 14, 18, 21, 28]
+  rsi_upper: [65, 70, 75, 80]
+  rsi_lower: [20, 25, 30, 35]
+  rsi_exit: [45, 50, 55]
+constraints:
+  upper_gt_exit: true
+  lower_lt_exit: true
+  min_range: 25
+  min_period: 2
+  min_trade_count: 50
+splits:
+  train: 0.60
+  validation: 0.25
+  holdout: 0.15

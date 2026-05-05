@@ -1,0 +1,14 @@
+strategy_name: rsi_sma
+symbol: BTC
+timeframe: 1m
+artifact_mode: proposed_only
+context_gate:
+  join_key: timestamp
+  frame_kind: timestamped_bar
+  required_context_tags:
+    - funding_extreme
+    - risk_off
+  max_spread_bps: 15.0
+  min_depth_imbalance: -0.35
+  max_depth_imbalance: 0.35
+  candidate_scope: post_strategy_pre_backtest_context_gating

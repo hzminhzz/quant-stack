@@ -1,0 +1,12 @@
+strategy_name: bb_breakout
+symbol: BTC
+timeframe: 1h
+artifact_mode: proposed_only
+context_gate:
+  join_key: timestamp
+  frame_kind: timestamped_bar
+  required_context_tags: []
+  max_spread_bps: 21.0
+  min_depth_imbalance: -0.25
+  max_depth_imbalance: 0.25
+  candidate_scope: post_strategy_pre_backtest_context_gating

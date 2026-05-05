@@ -1,0 +1,32 @@
+# BTC 4h RSI momentum context validation query
+strategy: rsi_momentum
+champion_parameters:
+  rsi_period: 14
+  rsi_upper: 70
+  rsi_lower: 30
+  rsi_exit: 50
+backtest:
+  fee_bps: 5
+  slippage_bps: 2
+  execution_lag_bars: 1
+filters:
+  - id: unfiltered_champion
+    name: Baseline
+  - id: volatility_extreme_disable
+    name: Volatility Extreme Disable
+    params: { zscore_threshold: 2.5 }
+  - id: moderate_volatility_only
+    name: Moderate Volatility Only
+    params: { min_zscore: -1.0, max_zscore: 2.0 }
+  - id: trend_strength_filter
+    name: Trend Strength Filter
+    params: { sma_period_fast: 20, sma_period_slow: 50 }
+  - id: liquidity_stress_disable
+    name: Liquidity Stress Disable (Synthetic)
+  - id: funding_crowding_filter
+    name: Funding Crowding Filter (Synthetic)
+  - id: oi_liquidation_filter
+    name: OI Liquidation Filter (Synthetic)
+  - id: simple_combined_filter
+    name: Simple Combined Filter
+    members: [volatility_extreme_disable, liquidity_stress_disable, funding_crowding_filter]

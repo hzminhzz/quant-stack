@@ -1,0 +1,22 @@
+# RSI momentum holdout validation query
+strategy: rsi_momentum
+holdout_symbols: [SOL-USDT, ADA-USDT]
+core_symbols: [BTC-USDT, ETH-USDT, BNB-USDT]
+timeframe: 4h
+champion_parameters:
+  rsi_period: 14
+  rsi_upper: 70
+  rsi_lower: 30
+  rsi_exit: 50
+trend_filter:
+  id: trend_strength_filter
+  params: { sma_period_fast: 20, sma_period_slow: 50 }
+chop_filter:
+  id: high_volatility_disable
+  params: { threshold: 2.5 }
+validation:
+  forward_start: "2026-01-01T00:00:00Z"
+  fee_bps: 5
+  slippage_bps: 2
+  execution_lag_bars: 1
+  initial_equity: 1.0

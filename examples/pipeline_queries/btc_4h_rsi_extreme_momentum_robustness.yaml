@@ -1,0 +1,35 @@
+# BTC 4h RSI extreme-momentum robustness audit query
+strategy: rsi_momentum
+symbol: BTC-USDT
+timeframe: 4h
+default_parameters:
+  rsi_period: 14
+  rsi_upper: 70
+  rsi_lower: 30
+  rsi_exit: 50
+backtest:
+  fee_bps: 5
+  slippage_bps: 2
+  execution_lag_bars: 1
+audit:
+  train_test_split: 0.6
+  walk_forward:
+    windows:
+      - { train: ["2020-01-01", "2021-12-31"], test: ["2022-01-01", "2022-12-31"] }
+      - { train: ["2021-01-01", "2022-12-31"], test: ["2023-01-01", "2023-12-31"] }
+      - { train: ["2022-01-01", "2023-12-31"], test: ["2024-01-01", "2024-12-31"] }
+      - { train: ["2023-01-01", "2024-12-31"], test: ["2025-01-01", "2025-12-31"] }
+  parameter_sensitivity:
+    rsi_period: [10, 14, 21]
+    threshold_pairs:
+      - { upper: 65, lower: 35 }
+      - { upper: 70, lower: 30 }
+      - { upper: 75, lower: 25 }
+    exit_levels: [45, 50, 55]
+  cost_sensitivity:
+    combinations:
+      - { fee: 0, slippage: 0 }
+      - { fee: 2, slippage: 1 }
+      - { fee: 5, slippage: 2 }
+      - { fee: 10, slippage: 5 }
+      - { fee: 20, slippage: 10 }

@@ -1,0 +1,23 @@
+# RSI momentum portfolio validation query
+strategy: rsi_momentum
+symbols: [BTC-USDT, ETH-USDT, BNB-USDT]
+timeframe: 4h
+champion_parameters:
+  rsi_period: 14
+  rsi_upper: 70
+  rsi_lower: 30
+  rsi_exit: 50
+trend_filter:
+  id: trend_strength_filter
+  params: { sma_period_fast: 20, sma_period_slow: 50 }
+portfolio:
+  initial_equity: 1.0
+  fee_bps: 5
+  slippage_bps: 2
+  max_symbol_abs_weight: 0.50
+  max_gross_exposure: 1.00
+  vol_lookback_bars: 42
+variants:
+  - equal_weight_static
+  - equal_active_weight
+  - volatility_scaled
