@@ -5,8 +5,8 @@ import unittest
 import numpy as np
 
 from engine.backtester import get_equity_and_trades_rsi
+from engine.evaluator import PhaseValidationRequest, validate_phase_metrics
 from engine.monte_carlo import run_monte_carlo
-from live_swarm import validate_phase_metrics
 from strategy_families import get_strategy_family
 
 
@@ -54,9 +54,11 @@ class EngineCoreTests(unittest.TestCase):
             "gain_pain_ratio": 1.2,
             "kelly_criterion": 0.1,
         }
-        message = validate_phase_metrics(metrics, "In-Sample")
-        self.assertIsNotNone(message)
-        self.assertIn("deterministic prop-firm validation", message)
+        result = validate_phase_metrics(PhaseValidationRequest(metrics=metrics, label="In-Sample"))
+        self.assertIsNotNone(result.rejection_reason)
+        rejection_reason = result.rejection_reason
+        assert rejection_reason is not None
+        self.assertIn("deterministic prop-firm validation", rejection_reason)
 
 
 if __name__ == "__main__":

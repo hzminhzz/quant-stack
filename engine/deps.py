@@ -4,11 +4,35 @@ Centralized Dependency Injection container for the Quant Factory.
 Holds persistent DuckDB connection and CCXT exchange client.
 One connection is created, injected into every agent, and reused forever.
 """
-import duckdb
+from dataclasses import dataclass
+from pathlib import Path
+
 import ccxt
+import duckdb
 import numpy as np
-from dataclasses import dataclass, field
-from typing import Optional
+
+from evolution.experience_pool import initialize_experience_tables
+
+
+ALLOWED_MULTI_YEAR_ASSETS = {"BTC", "ETH"}
+
+
+def _validate_multi_year_asset(asset: str) -> str:
+    normalized_asset = asset.strip().upper()
+    if normalized_asset not in ALLOWED_MULTI_YEAR_ASSETS:
+        raise ValueError(f"asset must be one of {sorted(ALLOWED_MULTI_YEAR_ASSETS)}")
+    return normalized_asset
+
+
+def _validate_multi_year_years(years: list[int]) -> list[int]:
+    validated_years: list[int] = []
+    for year in years:
+        if isinstance(year, bool) or not isinstance(year, int):
+            raise ValueError("years must contain only integer values")
+        if year < 2000 or year > 2100:
+            raise ValueError("years must be between 2000 and 2100")
+        validated_years.append(year)
+    return validated_years
 
 
 @dataclass
@@ -39,12 +63,14 @@ class QuantFactoryDeps:
 
         if years is None:
             years = [2021, 2022, 2023, 2024]
+        asset = _validate_multi_year_asset(asset)
+        years = _validate_multi_year_years(years)
         if split_date is None:
             split_date = f"{years[-1]}-07-01"
 
         # Build a glob that covers only the requested years
         file_patterns = [
-            f"'Data/Binance/{asset}_1m_{y}.parquet'" for y in years
+            f"'{(Path('Data/Binance') / f'{asset}_1m_{y}.parquet').as_posix()}'" for y in years
         ]
         union_query = " UNION ALL ".join(
             [f"SELECT datetime as timestamp, close FROM read_parquet({p})" for p in file_patterns]
@@ -106,12 +132,15 @@ class QuantFactoryDeps:
         }
 
 
-def create_deps(data_dir: str = "Data/Binance") -> QuantFactoryDeps:
+def create_deps(data_dir: str = "Data/Binance", db_path: str = "data/quant_factory.duckdb") -> QuantFactoryDeps:
     """
     Factory function. Call once at startup, pass the result everywhere.
     """
     print("🔌 Connecting to DuckDB (persistent session)...")
-    db = duckdb.connect()
+    database_path = Path(db_path)
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    db = duckdb.connect(str(database_path))
+    initialize_experience_tables(db)
 
     print("🔌 Authenticating CCXT Binance client (rate-limit enabled)...")
     exchange = ccxt.binance({"enableRateLimit": True})

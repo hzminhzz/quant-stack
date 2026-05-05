@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+import numpy as np
 from pydantic import BaseModel, Field
 import polars as pl
 
@@ -43,7 +44,7 @@ class StrategyFamily(ABC):
     def prepare_market_data(self, raw_df: pl.DataFrame) -> pl.DataFrame: ...
 
     @abstractmethod
-    def simulate(self, close_prices, params: BaseModel): ...
+    def simulate(self, close_prices: np.ndarray, params: BaseModel) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
 
     @abstractmethod
     def format_params(self, params: BaseModel) -> str: ...

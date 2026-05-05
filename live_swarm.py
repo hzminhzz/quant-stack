@@ -16,19 +16,27 @@ import argparse
 import asyncio
 import json
 import warnings
+from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
+from uuid import uuid4
 
-import numpy as np
-import polars as pl
 from pydantic import BaseModel, Field, ValidationError
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from engine.deps import QuantFactoryDeps, create_deps
-from engine.analytics_pro import calculate_prop_metrics
-from engine.monte_carlo import run_monte_carlo
-from engine.schemas import PropFirmContract
+from engine.evaluator import (
+    BacktestPhaseResult,
+    DeterministicEvaluationRequest,
+    DeterministicEvaluationResult,
+    evaluate_candidate,
+    load_market_frames,
+    MarketFrameLoadRequest,
+)
+from evolution.experience_pool import create_evolution_run, insert_experience_entry, insert_failure_event, update_evolution_run
+from evolution.schemas import EvolutionRun, ExperienceEntry, FailureEvent
 from pipeline_artifacts import DEFAULT_SIGNAL_ARTIFACT_PATH, ValidationArtifact, load_signal_artifact, save_validation_artifact
 from strategy_families import available_strategy_families, get_strategy_family
 from strategy_families.base import StrategyProposal
@@ -151,21 +159,9 @@ risk_agent = Agent(
 )
 
 
-# ═══════════════════════════════════════════════════════════════
-#  DETAILED REPORTING
-# ═══════════════════════════════════════════════════════════════
-
-def run_backtest_phase(close_prices, df, family, params, label):
-    """Run a single backtest phase with full institutional reporting."""
-    equity, exposed, trades = family.simulate(close_prices, params)
-
-    df_m = df.with_columns([
-        (pl.Series("equity", equity) * 10000.0), # $10k initial
-        pl.Series("is_exposed", exposed)
-    ])
-    metrics = calculate_prop_metrics(df_m, initial_capital=10000.0)
-
-    print(f"\n📊 [{label}] Detailed Metrics")
+def print_phase_metrics(phase: BacktestPhaseResult) -> None:
+    metrics = phase.metrics
+    print(f"\n📊 [{phase.label}] Detailed Metrics")
     print(f"  ├─ CAGR:              {metrics.get('cagr', 0) * 100:>8.2f}%")
     print(f"  ├─ Max Drawdown:      {metrics.get('max_drawdown', 0) * 100:>8.2f}%")
     print(f"  ├─ Max Daily DD:      {metrics.get('max_daily_drawdown', 0) * 100:>8.2f}%")
@@ -174,34 +170,152 @@ def run_backtest_phase(close_prices, df, family, params, label):
     print(f"  ├─ Tail Ratio:        {metrics.get('tail_ratio', 0):>8.3f}")
     print(f"  ├─ Gain/Pain Ratio:   {metrics.get('gain_pain_ratio', 0):>8.3f}")
     print(f"  ├─ Kelly Criterion:   {metrics.get('kelly_criterion', 0):>8.3f}")
-    print(f"  └─ Trades:            {len(trades):>8d}")
-
-    return metrics, trades
+    print(f"  └─ Trades:            {len(phase.trades):>8d}")
 
 
-def build_cro_payload(is_metrics, oos_metrics, mc_95, is_trades, oos_trades):
-    """Build the full payload for the CRO with all metrics + trade counts."""
+class AttemptOutcome(str, Enum):
+    FAMILY_MISMATCH = "family_mismatch"
+    PARAM_VALIDATION_FAILED = "param_validation_failed"
+    DETERMINISTIC_REJECTION = "deterministic_rejection"
+    CRO_REJECTED = "cro_rejected"
+    APPROVED = "approved"
 
-    def safe_metrics(m):
-        return {k: (float(v) if isinstance(v, (int, float, np.integer, np.floating)) else v)
-                for k, v in m.items()}
 
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _json_safe_metrics(metrics: dict[str, object]) -> dict[str, object]:
+    safe: dict[str, object] = {}
+    for key, value in metrics.items():
+        if isinstance(value, bool):
+            safe[key] = value
+        elif isinstance(value, int):
+            safe[key] = value
+        elif isinstance(value, float):
+            safe[key] = value
+        else:
+            safe[key] = str(value)
+    return safe
+
+
+def _candidate_name(iteration: int) -> str:
+    return f"swarm-iteration-{iteration + 1}"
+
+
+def _build_run_metadata(args: argparse.Namespace) -> dict[str, object]:
     return {
-        "in_sample_metrics": safe_metrics(is_metrics),
-        "in_sample_trade_count": int(len(is_trades)),
-        "out_of_sample_metrics": safe_metrics(oos_metrics),
-        "out_of_sample_trade_count": int(len(oos_trades)),
-        "monte_carlo_95_dd_absolute_pct": round(abs(mc_95) * 100, 2),
-        "note": "Monte Carlo passes if absolute value < 16%. Reject if 0.0% (ghost alpha).",
+        "asset": args.asset,
+        "train_years": list(args.train_years),
+        "test_years": list(args.test_years),
+        "max_iterations": args.max_iterations,
+        "mc_seed": args.mc_seed,
+        "signal_seeded": args.signal,
+        "artifact_path": args.artifact_path,
     }
 
 
-def validate_phase_metrics(metrics: dict, label: str) -> str | None:
-    try:
-        PropFirmContract(**metrics)
-    except ValidationError as exc:
-        return f"{label} failed deterministic prop-firm validation: {exc.errors()[0]['msg']}"
-    return None
+def _build_evolution_run(args: argparse.Namespace, strategy_type: str) -> EvolutionRun:
+    return EvolutionRun(
+        run_id=f"live-swarm-{uuid4().hex}",
+        objective="Validate live swarm candidate robustness",
+        strategy_type=strategy_type,
+        status="running",
+        metadata=_build_run_metadata(args),
+    )
+
+
+def _build_evaluation_summary(evaluation: DeterministicEvaluationResult) -> dict[str, object]:
+    summary: dict[str, object] = {
+        "in_sample_metrics": _json_safe_metrics(evaluation.in_sample.metrics),
+        "in_sample_trade_count": len(evaluation.in_sample.trades),
+    }
+    if evaluation.monte_carlo is not None:
+        summary["monte_carlo_95_dd_absolute_pct"] = round(abs(evaluation.monte_carlo.dd_95) * 100, 2)
+        summary["monte_carlo_median_dd_absolute_pct"] = round(abs(evaluation.monte_carlo.dd_50) * 100, 2)
+    if evaluation.out_of_sample is not None:
+        summary["out_of_sample_metrics"] = _json_safe_metrics(evaluation.out_of_sample.metrics)
+        summary["out_of_sample_trade_count"] = len(evaluation.out_of_sample.trades)
+    if evaluation.deterministic_rejection is not None:
+        summary["deterministic_rejection"] = evaluation.deterministic_rejection
+    return summary
+
+
+class ExperienceLogger:
+    def __init__(self, db, run: EvolutionRun) -> None:
+        self._db = db
+        self.run = run
+
+    @classmethod
+    def create(cls, db, args: argparse.Namespace, strategy_type: str) -> "ExperienceLogger":
+        run = _build_evolution_run(args, strategy_type)
+        create_evolution_run(db, run)
+        return cls(db=db, run=run)
+
+    def finalize(self, *, status: str, metadata_updates: dict[str, object] | None = None) -> EvolutionRun:
+        metadata = dict(self.run.metadata)
+        if metadata_updates is not None:
+            metadata.update(metadata_updates)
+        self.run = self.run.model_copy(
+            update={
+                "status": status,
+                "completed_at": _utc_now(),
+                "metadata": metadata,
+            }
+        )
+        update_evolution_run(self._db, self.run)
+        return self.run
+
+    def record_attempt(
+        self,
+        *,
+        iteration: int,
+        strategy: StrategyProposal,
+        outcome: AttemptOutcome,
+        details: dict[str, object],
+    ) -> str:
+        experience_id = f"exp-{uuid4().hex}"
+        entry = ExperienceEntry(
+            experience_id=experience_id,
+            run_id=self.run.run_id,
+            strategy_type=self.run.strategy_type,
+            candidate_name=_candidate_name(iteration),
+            hypothesis=strategy.rationale,
+            metrics={
+                "iteration": iteration + 1,
+                "outcome": outcome.value,
+            },
+            artifacts={
+                "strategy_type": strategy.strategy_type,
+                "params": strategy.params,
+                "details": details,
+            },
+            notes=f"Live swarm attempt logged as {outcome.value}",
+        )
+        insert_experience_entry(self._db, entry)
+        return experience_id
+
+    def record_failure(
+        self,
+        *,
+        experience_id: str | None,
+        stage: str,
+        failure_type: str,
+        message: str,
+        details: dict[str, object],
+    ) -> None:
+        insert_failure_event(
+            self._db,
+            FailureEvent(
+                event_id=f"fail-{uuid4().hex}",
+                run_id=self.run.run_id,
+                experience_id=experience_id,
+                stage=stage,
+                failure_type=failure_type,
+                message=message,
+                details=details,
+            ),
+        )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -224,9 +338,11 @@ def parse_args():
     parser.add_argument("--mc-seed", type=int, default=42,
                         help="Deterministic seed for Monte Carlo stress testing")
     parser.add_argument("--artifact-path", default="artifacts/latest_validation.json",
-                        help="Path to write validation artifact JSON")
+                         help="Path to write validation artifact JSON")
     parser.add_argument("--signal-artifact-path", default=str(DEFAULT_SIGNAL_ARTIFACT_PATH),
-                        help="Path to input signal artifact JSON used for seeding")
+                         help="Path to input signal artifact JSON used for seeding")
+    parser.add_argument("--log-experience", action="store_true",
+                         help="Persist passive live swarm experience logs to DuckDB")
     return parser.parse_args()
 
 
@@ -239,41 +355,27 @@ async def main():
     args = parse_args()
     family = get_strategy_family(args.family)
 
-    all_years = args.train_years + args.test_years
-    split_date = f"{args.test_years[0]}-01-01"
-
     print("=" * 70)
     print("  QUANT FACTORY — UNIFIED MULTI-AGENT SWARM")
     print("=" * 70)
 
     # ── ONE-TIME SETUP ──
     deps = create_deps()
+    experience_logger = ExperienceLogger.create(deps.db, args, family.name) if args.log_experience else None
 
     print(f"\n📂 Loading {args.asset} data ({args.train_years} train, {args.test_years} OOS)...")
-    
-    # We load everything via DuckDB glob for more flexibility
-    years_all = list(set(args.train_years + args.test_years))
-    file_patterns = [f"'Data/Binance/{args.asset}_{family.raw_data_timeframe}_{y}.parquet'" for y in years_all]
-    
-    # Cast timestamp to datetime at the query level
-    union_query = " UNION ALL ".join([
-        f"SELECT epoch_ms(timestamp) as timestamp, open, high, low, close, volume FROM read_parquet({p})" 
-        for p in file_patterns
-    ])
-    raw_df = deps.db.sql(f"SELECT * FROM ({union_query}) ORDER BY timestamp ASC").pl()
+    market_frames = load_market_frames(
+        deps=deps,
+        family=family,
+        request=MarketFrameLoadRequest(
+            asset=args.asset,
+            train_years=args.train_years,
+            test_years=args.test_years,
+        ),
+    )
 
-    # Split and Resample
-    train_raw = raw_df.filter(pl.col("timestamp").dt.year().is_in(args.train_years))
-    test_raw = raw_df.filter(pl.col("timestamp").dt.year().is_in(args.test_years))
-    
-    train_df = family.prepare_market_data(train_raw)
-    test_df = family.prepare_market_data(test_raw)
-
-    train_close = train_df["close"].to_numpy()
-    test_close = test_df["close"].to_numpy()
-
-    print(f"  -> In-Sample (Train): {len(train_df)} bars ({family.validation_timeframe})")
-    print(f"  -> Out-Of-Sample:     {len(test_df)} bars ({family.validation_timeframe})")
+    print(f"  -> In-Sample (Train): {len(market_frames.train_df)} bars ({family.validation_timeframe})")
+    print(f"  -> Out-Of-Sample:     {len(market_frames.test_df)} bars ({family.validation_timeframe})")
 
     print("\n✅ Data Loading Complete. Starting Swarm Loop...")
 
@@ -283,9 +385,28 @@ async def main():
         try:
             signal_artifact = load_signal_artifact(path=Path(args.signal_artifact_path))
             if signal_artifact.strategy_type != family.name:
+                if experience_logger is not None:
+                    experience_logger.record_failure(
+                        experience_id=None,
+                        stage="signal_seed",
+                        failure_type="family_mismatch",
+                        message="Signal artifact family mismatch.",
+                        details={
+                            "expected_family": family.name,
+                            "artifact_family": signal_artifact.strategy_type,
+                        },
+                    )
                 print(
                     f"  ❌ Signal artifact family mismatch: selected '{family.name}' but artifact is '{signal_artifact.strategy_type}'."
                 )
+                if experience_logger is not None:
+                    experience_logger.finalize(
+                        status="failed",
+                        metadata_updates={
+                            "final_outcome": "signal_artifact_family_mismatch",
+                            "approved": False,
+                        },
+                    )
                 deps.db.close()
                 return
             print(f"\n📡 Seeding from signal artifact (source: {signal_artifact.source}):")
@@ -311,6 +432,7 @@ async def main():
         if iteration == 0:
             prompt = initial_prompt
         else:
+            assert critique is not None
             prompt = (
                 family.build_retry_prompt(critique.critique)
             )
@@ -325,6 +447,26 @@ async def main():
             break
 
         if strategy.strategy_type != family.name:
+            if experience_logger is not None:
+                experience_id = experience_logger.record_attempt(
+                    iteration=iteration,
+                    strategy=strategy,
+                    outcome=AttemptOutcome.FAMILY_MISMATCH,
+                    details={
+                        "expected_family": family.name,
+                        "actual_family": strategy.strategy_type,
+                    },
+                )
+                experience_logger.record_failure(
+                    experience_id=experience_id,
+                    stage="proposal",
+                    failure_type="family_mismatch",
+                    message="Strategy family mismatch.",
+                    details={
+                        "expected_family": family.name,
+                        "actual_family": strategy.strategy_type,
+                    },
+                )
             critique = RobustnessCritique(
                 is_robust=False,
                 critique=f"Strategy family mismatch: expected '{family.name}', got '{strategy.strategy_type}'.",
@@ -337,6 +479,24 @@ async def main():
         try:
             params = family.validate_params(strategy.params)
         except ValidationError as exc:
+            if experience_logger is not None:
+                experience_id = experience_logger.record_attempt(
+                    iteration=iteration,
+                    strategy=strategy,
+                    outcome=AttemptOutcome.PARAM_VALIDATION_FAILED,
+                    details={
+                        "validation_errors": exc.errors(),
+                    },
+                )
+                experience_logger.record_failure(
+                    experience_id=experience_id,
+                    stage="proposal",
+                    failure_type="param_validation_failed",
+                    message="Strategy parameters failed validation.",
+                    details={
+                        "validation_errors": exc.errors(),
+                    },
+                )
             critique = RobustnessCritique(
                 is_robust=False,
                 critique=f"Invalid strategy parameters: {exc.errors()[0]['msg']}",
@@ -350,34 +510,77 @@ async def main():
         print(f"  -> Params: {family.format_params(params)}")
         print(f"  -> Rationale: {strategy.rationale}")
 
-        # ── PHASE 1: In-Sample Backtest ──
+        # ── DETERMINISTIC EVALUATION ──
         print(f"\n⚙️  [Phase 1]: In-Sample Backtest ({args.train_years})...")
-        is_metrics, is_trades = run_backtest_phase(
-            train_close, train_df, family, params, "In-Sample",
+        evaluation = evaluate_candidate(
+            DeterministicEvaluationRequest(
+                family=family,
+                params=params,
+                train_close=market_frames.train_close,
+                train_df=market_frames.train_df,
+                test_close=market_frames.test_close,
+                test_df=market_frames.test_df,
+                mc_seed=args.mc_seed,
+            )
         )
+        print_phase_metrics(evaluation.in_sample)
 
-        deterministic_rejection = validate_phase_metrics(is_metrics, "In-Sample")
-        if deterministic_rejection:
+        deterministic_rejection = evaluation.deterministic_rejection
+        if evaluation.monte_carlo is None and deterministic_rejection:
+            if experience_logger is not None:
+                evaluation_summary = _build_evaluation_summary(evaluation)
+                experience_id = experience_logger.record_attempt(
+                    iteration=iteration,
+                    strategy=strategy,
+                    outcome=AttemptOutcome.DETERMINISTIC_REJECTION,
+                    details={
+                        "evaluation_summary": evaluation_summary,
+                    },
+                )
+                experience_logger.record_failure(
+                    experience_id=experience_id,
+                    stage="deterministic_evaluation",
+                    failure_type="deterministic_rejection",
+                    message=deterministic_rejection,
+                    details={
+                        "evaluation_summary": evaluation_summary,
+                    },
+                )
             print(f"\n  ❌ Robust: False")
             print(f"  📋 Verdict: {deterministic_rejection}")
             critique = RobustnessCritique(is_robust=False, critique=deterministic_rejection)
             iteration += 1
             continue
 
-        # ── PHASE 2: Monte Carlo Stress Test ──
+        assert evaluation.monte_carlo is not None
+        assert evaluation.out_of_sample is not None
         print(f"\n🎲 [Phase 2]: Monte Carlo Stress Test (1,000 shuffles)...")
-        mc_95, mc_50 = run_monte_carlo(is_trades, num_simulations=1000, seed=args.mc_seed)
-        print(f"  -> 95th Percentile Worst-Case DD: {mc_95 * 100:.2f}%")
-        print(f"  -> Median DD across simulations:  {mc_50 * 100:.2f}%")
+        print(f"  -> 95th Percentile Worst-Case DD: {evaluation.monte_carlo.dd_95 * 100:.2f}%")
+        print(f"  -> Median DD across simulations:  {evaluation.monte_carlo.dd_50 * 100:.2f}%")
 
-        # ── PHASE 3: Out-Of-Sample Backtest ──
         print(f"\n🔮 [Phase 3]: Out-Of-Sample Backtest ({args.test_years})...")
-        oos_metrics, oos_trades = run_backtest_phase(
-            test_close, test_df, family, params, "Out-Of-Sample",
-        )
+        print_phase_metrics(evaluation.out_of_sample)
 
-        deterministic_rejection = validate_phase_metrics(oos_metrics, "Out-Of-Sample")
         if deterministic_rejection:
+            if experience_logger is not None:
+                evaluation_summary = _build_evaluation_summary(evaluation)
+                experience_id = experience_logger.record_attempt(
+                    iteration=iteration,
+                    strategy=strategy,
+                    outcome=AttemptOutcome.DETERMINISTIC_REJECTION,
+                    details={
+                        "evaluation_summary": evaluation_summary,
+                    },
+                )
+                experience_logger.record_failure(
+                    experience_id=experience_id,
+                    stage="deterministic_evaluation",
+                    failure_type="deterministic_rejection",
+                    message=deterministic_rejection,
+                    details={
+                        "evaluation_summary": evaluation_summary,
+                    },
+                )
             print(f"\n  ❌ Robust: False")
             print(f"  📋 Verdict: {deterministic_rejection}")
             critique = RobustnessCritique(is_robust=False, critique=deterministic_rejection)
@@ -386,7 +589,8 @@ async def main():
 
         # ── CRITIC: CRO Evaluates ──
         print("\n👔 [CRO]: Evaluating Full Robustness Report...")
-        payload = build_cro_payload(is_metrics, oos_metrics, mc_95, is_trades, oos_trades)
+        assert evaluation.cro_payload is not None
+        payload = evaluation.cro_payload.model_dump()
         risk_result = await run_agent_with_fallback(risk_agent, json.dumps(payload))
         critique = getattr(risk_result, "output", getattr(risk_result, "data", None))
         if not critique:
@@ -396,8 +600,44 @@ async def main():
         print(f"\n  {'✅' if critique.is_robust else '❌'} Robust: {critique.is_robust}")
         print(f"  📋 Verdict: {critique.critique}")
 
+        artifact_run = None
+        if experience_logger is not None:
+            evaluation_summary = _build_evaluation_summary(evaluation)
+            outcome = AttemptOutcome.APPROVED if critique.is_robust else AttemptOutcome.CRO_REJECTED
+            experience_id = experience_logger.record_attempt(
+                iteration=iteration,
+                strategy=strategy,
+                outcome=outcome,
+                details={
+                    "evaluation_summary": evaluation_summary,
+                    "cro_verdict": critique.model_dump(mode="json"),
+                    "approved": critique.is_robust,
+                },
+            )
+            if critique.is_robust:
+                artifact_run = experience_logger.finalize(
+                    status="completed",
+                    metadata_updates={
+                        "final_outcome": "approved",
+                        "approved": True,
+                        "iterations_used": iteration + 1,
+                    },
+                )
+            else:
+                experience_logger.record_failure(
+                    experience_id=experience_id,
+                    stage="cro",
+                    failure_type="cro_rejection",
+                    message=critique.critique,
+                    details={
+                        "evaluation_summary": evaluation_summary,
+                        "cro_verdict": critique.model_dump(mode="json"),
+                    },
+                )
+
         if critique.is_robust:
             artifact = ValidationArtifact(
+                version="1.0",
                 strategy_type=family.name,
                 params=params.model_dump(),
                 rationale=strategy.rationale,
@@ -406,11 +646,12 @@ async def main():
                 out_of_sample_metrics=payload["out_of_sample_metrics"],
                 out_of_sample_trade_count=payload["out_of_sample_trade_count"],
                 monte_carlo_95_dd_absolute_pct=payload["monte_carlo_95_dd_absolute_pct"],
-                monte_carlo_median_dd_absolute_pct=round(abs(mc_50) * 100, 2),
+                monte_carlo_median_dd_absolute_pct=round(abs(evaluation.monte_carlo.dd_50) * 100, 2),
                 approved=True,
                 critique=critique.critique,
+                evolution_run=artifact_run,
             )
-            save_validation_artifact(artifact, path=__import__("pathlib").Path(args.artifact_path))
+            save_validation_artifact(artifact, path=Path(args.artifact_path))
             print(f"\n{'=' * 70}")
             print("  🎉  ALPHA CONFIRMED — INSTITUTIONAL GRADE STRATEGY FOUND!")
             print(f"  Family     : {family.name}")
@@ -423,6 +664,24 @@ async def main():
 
     if iteration == max_iterations:
         print(f"\n❌ Swarm exhausted {max_iterations} iterations without approval.")
+        if experience_logger is not None:
+            experience_logger.finalize(
+                status="failed",
+                metadata_updates={
+                    "final_outcome": "swarm_exhausted",
+                    "approved": False,
+                    "iterations_used": max_iterations,
+                },
+            )
+
+    if experience_logger is not None and experience_logger.run.status == "running":
+        experience_logger.finalize(
+            status="failed",
+            metadata_updates={
+                "final_outcome": "unexpected_exit",
+                "approved": False,
+            },
+        )
 
     # Cleanup
     deps.db.close()

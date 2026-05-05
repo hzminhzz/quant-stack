@@ -9,6 +9,8 @@ import dspy
 import duckdb
 import polars as pl
 
+from evolution.research_guard import guard_research_code
+from evolution.schemas import ResearchGuardReport
 from paper_context import (
     DEFAULT_PAPER_SOURCES,
     fetch_paper_context_sync,
@@ -121,12 +123,21 @@ def generate_polars_script(strategy_type: str, signal_data: dict[str, Any], pape
     return prediction.polars_code
 
 
-def save_research_artifact_for_pipeline(config: ResearchConfig, strategy_type: str, signal_data: dict[str, Any], paper_context: str, polars_code: str) -> None:
+def save_research_artifact_for_pipeline(
+    config: ResearchConfig,
+    strategy_type: str,
+    signal_data: dict[str, Any],
+    paper_context: str,
+    polars_code: str,
+    guard_report: ResearchGuardReport | None = None,
+) -> None:
     artifact = ResearchArtifact(
+        version="1.0",
         strategy_type=strategy_type,
         signal=signal_data,
         paper_context=paper_context,
         polars_code=polars_code,
+        guard_report=guard_report,
     )
     save_research_artifact(artifact, path=__import__("pathlib").Path(config.research_artifact_path))
 
@@ -171,9 +182,23 @@ def main() -> None:
     polars_code = generate_polars_script(signal_artifact.strategy_type, signal_data, paper_context)
     print("\n--- DSPy Generated Polars Script ---")
     print(polars_code)
-    save_research_artifact_for_pipeline(config, signal_artifact.strategy_type, signal_data, paper_context, polars_code)
 
-    print("\n--- 5. Data Loading via DuckDB -> Polars ---")
+    print("\n--- 5. Guarding Generated Research Code ---")
+    guard_report = guard_research_code(polars_code, strategy_type=signal_artifact.strategy_type)
+    if not guard_report.passed:
+        print(f"Research guard failed: {guard_report.summary}")
+        return
+
+    save_research_artifact_for_pipeline(
+        config,
+        signal_artifact.strategy_type,
+        signal_data,
+        paper_context,
+        polars_code,
+        guard_report=guard_report,
+    )
+
+    print("\n--- 6. Data Loading via DuckDB -> Polars ---")
     df_market = load_market_data(config.data_path)
     if df_market is None:
         print(f"Data file {config.data_path} not found. Make sure you downloaded the data.")

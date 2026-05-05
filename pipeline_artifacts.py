@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from evolution.schemas import EvolutionRun, ResearchGuardReport
 
 
 DEFAULT_VALIDATION_ARTIFACT_PATH = Path("artifacts/latest_validation.json")
@@ -18,6 +19,7 @@ class SignalArtifact(BaseModel):
     signal: dict[str, Any]
     source: str
     paper_context: str
+    evolution_run: EvolutionRun | None = None
 
 
 class ResearchArtifact(BaseModel):
@@ -26,6 +28,8 @@ class ResearchArtifact(BaseModel):
     signal: dict[str, Any]
     paper_context: str
     polars_code: str
+    guard_report: ResearchGuardReport | None = None
+    evolution_run: EvolutionRun | None = None
 
 
 class ValidationArtifact(BaseModel):
@@ -41,6 +45,7 @@ class ValidationArtifact(BaseModel):
     monte_carlo_median_dd_absolute_pct: float
     approved: bool
     critique: str
+    evolution_run: EvolutionRun | None = None
 
 
 def save_validation_artifact(artifact: ValidationArtifact, path: Path = DEFAULT_VALIDATION_ARTIFACT_PATH) -> None:
