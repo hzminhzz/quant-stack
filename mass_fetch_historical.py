@@ -3,9 +3,7 @@ import pandas as pd
 import time
 import os
 
-def fetch_year_data(exchange, symbol, year):
-    timeframe = '1m'
-    
+def fetch_year_data(exchange, symbol, year, timeframe='1m'):
     start_time_str = f'{year}-01-01T00:00:00Z'
     end_time_str = f'{year+1}-01-01T00:00:00Z'
     
@@ -21,7 +19,7 @@ def fetch_year_data(exchange, symbol, year):
         print(f"Skipping {year} for {symbol} as it is in the future.")
         return
 
-    asset_name = symbol.split('/')[0]
+    asset_name = symbol.split('/')[0].replace(':', '_') # Handle futures if any
     output_dir = 'Data/Binance'
     os.makedirs(output_dir, exist_ok=True)
     output_file = f'{output_dir}/{asset_name}_{timeframe}_{year}.parquet'
@@ -33,7 +31,17 @@ def fetch_year_data(exchange, symbol, year):
     all_ohlcv = []
     current_time = start_time
 
-    print(f"\n--- Fetching {symbol} data for {year} ---")
+    print(f"\n--- Fetching {symbol} {timeframe} data for {year} ---")
+
+    # Timeframe to milliseconds mapping (simple version)
+    tf_ms = {
+        '1m': 60000,
+        '5m': 300000,
+        '15m': 900000,
+        '1h': 3600000,
+        '4h': 14400000,
+        '1d': 86400000
+    }.get(timeframe, 60000)
 
     while current_time < end_time:
         try:
@@ -51,9 +59,9 @@ def fetch_year_data(exchange, symbol, year):
             all_ohlcv.extend(ohlcv)
             
             last_time = ohlcv[-1][0]
-            current_time = last_time + 60000 
+            current_time = last_time + tf_ms 
             
-            if len(all_ohlcv) % 100000 < 1000:
+            if len(all_ohlcv) % 10000 < 1000:
                 print(f"  [{asset_name} {year}] Fetched {len(all_ohlcv)} candles... Current date: {exchange.iso8601(last_time)}")
                 
         except Exception as e:
@@ -81,6 +89,7 @@ def main():
                         help="List of symbols to fetch (e.g. BTC/USDT ETH/USDT)")
     parser.add_argument("--years", nargs="+", type=int, default=[2021, 2022, 2023, 2024, 2025, 2026],
                         help="Years to fetch")
+    parser.add_argument("--timeframe", type=str, default="1m", help="Timeframe to fetch (1m, 5m, 1h, etc.)")
     args = parser.parse_args()
 
     exchange = ccxt.binance({
@@ -92,7 +101,7 @@ def main():
 
     for symbol in assets:
         for year in args.years:
-            fetch_year_data(exchange, symbol, year)
+            fetch_year_data(exchange, symbol, year, timeframe=args.timeframe)
             
     print("\n🎉 Mass historical data ingestion complete! All Parquet files saved to Data/Binance/")
 

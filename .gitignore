@@ -9,6 +9,11 @@ wheels/
 # Virtual environments
 .venv
 
+# Local secrets
+.env
+.env.*
+!.env.example
+
 # Data and Artifacts
 Data/
 data/

@@ -1,7 +1,11 @@
 """
+DEPRECATED: live_swarm.py legacy reference module.
+Replaced by quant_stack/research/optimization/ for research-only optimization.
+This file is kept for backward compatibility and historical reference only.
+
 live_swarm.py — Unified Actor-Critic Multi-Agent Swarm
 ======================================================
-The SINGLE production entry point for strategy validation.
+The historical production entry point for strategy validation.
 
 Pipeline: discovery.py → research.py → live_swarm.py → execution.py
 
@@ -15,6 +19,7 @@ Features:
 import argparse
 import asyncio
 import json
+import os
 import warnings
 from datetime import datetime, timezone
 from enum import Enum
@@ -62,11 +67,17 @@ class RobustnessCritique(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 # Primary: DeepSeek (High Performance)
-deepseek_provider = OpenAIProvider(
-    base_url="https://api.deepseek.com", 
-    api_key="sk-44c79a5a04494c1788ccd723ac565166" # USER: Replace with actual key or env var
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+deepseek_provider = (
+    OpenAIProvider(base_url="https://api.deepseek.com", api_key=DEEPSEEK_API_KEY)
+    if DEEPSEEK_API_KEY
+    else None
 )
-primary_model = OpenAIChatModel("deepseek-chat", provider=deepseek_provider)
+primary_model = (
+    OpenAIChatModel("deepseek-chat", provider=deepseek_provider)
+    if deepseek_provider is not None
+    else None
+)
 
 # Fallback: Local / OpenAI (Reliability)
 local_provider = OpenAIProvider(base_url="http://127.0.0.1:8000/v1", api_key="anything")
@@ -75,6 +86,12 @@ fallback_model = OpenAIChatModel("gpt-5.4", provider=local_provider)
 
 async def run_agent_with_fallback(agent, prompt, deps=None, history=None):
     """Execution wrapper with automatic model fallback."""
+    if primary_model is None:
+        raise RuntimeError(
+            "DEEPSEEK_API_KEY is required for live_swarm primary model execution. "
+            "Set it in the environment after rotating the exposed key."
+        )
+
     print(f"📡 Requesting {primary_model.model_name}...")
     try:
         # Try Primary

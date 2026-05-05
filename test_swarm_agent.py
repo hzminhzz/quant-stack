@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai import Agent
@@ -7,10 +8,14 @@ from engine.deps import create_deps
 from strategy_families.base import StrategyProposal
 
 async def main():
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise RuntimeError("DEEPSEEK_API_KEY is required after rotating the exposed key.")
+
     # Setup Primary
     deepseek_provider = OpenAIProvider(
         base_url="https://api.deepseek.com", 
-        api_key="sk-44c79a5a04494c1788ccd723ac565166"
+        api_key=api_key,
     )
     primary_model = OpenAIChatModel("deepseek-v4-flash", provider=deepseek_provider)
 

@@ -19,7 +19,6 @@ dependencies = [
     "nbformat>=5.10.4",
     "numba>=0.65.1",
     "numpy>=2.4.4",
-    "pandas>=3.0.2",
     "plotly>=6.7.0",
     "polars>=1.40.1",
     "polars-ta>=0.5.17",
@@ -28,4 +27,10 @@ dependencies = [
     "pyzmq>=27.1.0",
     "streamlit>=1.57.0",
     "taskiq>=0.12.2",
+]
+
+[project.optional-dependencies]
+backtest = [
+    "pandas>=2.0,<3.0",
+    "vectorbt>=1.0.0,<2",
 ]

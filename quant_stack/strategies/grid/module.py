@@ -1,0 +1,13 @@
+"""Grid strategy module factory."""
+
+from quant_stack.strategies.grid.params import GridParams
+from quant_stack.strategies.grid.signals import build_features, build_signals
+from quant_stack.strategies.grid.spec import SPEC
+from quant_stack.strategies.registry import StrategyModule
+
+
+def strategy_module() -> StrategyModule:
+    return StrategyModule(SPEC, GridParams, build_features, build_signals)
+
+
+__all__ = ["strategy_module"]
