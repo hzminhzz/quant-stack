@@ -20,13 +20,60 @@
 - `quant_stack/indicators/` - No LLM imports, no external API calls
 - `quant_stack/live/tick_loop` - No LLM calls, no blocking I/O, no complex transformations
 
+## Market Data Timeframe Policy
+
+- **Canonical OHLCV source is 1-minute parquet**
+  - Store and load raw market candles from the canonical 1m parquet dataset.
+  - Higher timeframes must be synthesized from 1m data unless explicitly justified.
+  - Do not require separate raw parquet files for 2m, 3m, 4m, 5m, 15m, 30m, 1h, 4h, or 1d if they can be derived from 1m.
+
+- **Deterministic resampling only**
+  - Open = first open in the window
+  - High = max high in the window
+  - Low = min low in the window
+  - Close = last close in the window
+  - Volume = sum volume in the window
+  - Any quote volume, trade count, taker buy volume, or other exchange fields must use explicit deterministic aggregation rules.
+
+- **No lookahead in multi-timeframe strategies**
+  - Higher-timeframe candles are only available after the higher-timeframe candle closes.
+  - A strategy running on 1m/5m must not use an unfinished 1h/4h candle as if it were final.
+  - Forward-filled higher-timeframe indicators must be shifted so they only become visible after the source candle close.
+  - Add tests when changing multi-timeframe alignment logic.
+
+- **Do not ask user for derived timeframe files**
+  - If a strategy needs 5m, 15m, 1h, or 4h candles, synthesize them from canonical 1m parquet.
+  - Only ask for additional data if the requested logic cannot be represented from 1m OHLCV.
+
+- **Exceptions requiring richer data**
+  - Tick-level execution
+  - Sub-minute scalping logic
+  - L2/L3 orderbook modeling
+  - Intrabar stop-loss/take-profit sequencing where both levels can be hit inside the same 1m candle
+  - Exchange-native candle validation or reconciliation
+
+- **Cache policy**
+  - Derived higher-timeframe candles may be cached under artifacts/cache or a dedicated derived-data cache.
+  - Cached derived candles must be reproducible from canonical 1m parquet.
+  - Cache keys should include symbol, source dataset id/path, timeframe, session/calendar rule, and resampling version.
+  - Do not treat derived caches as source-of-truth raw data.
+
 ## Forbidden Patterns
-1. **No pandas in core paths** - `quant_stack/backtesting/*.py`, `quant_stack/indicators/*.py`, `quant_stack/live/*.py`
-2. **No LLM in deterministic engines** - Don't import pydantic_ai, openai, anthropic in backtesting/indicators/live
-3. **No strategy-specific backtesters** - Don't add `run_rsi_backtest()`, `run_bb_backtest()` to `polars_engine.py`
-4. **No live trading by default** - Research tasks must work without credentials or live broker connections
-5. **No order-placement in research** - Don't import execution/broker modules in research/intelligence paths
-6. **No private-key terms in research** - Don't have `api_secret`, `private_key`, `password` in research code
+1. **No pandas in core paths**
+   - `quant_stack/backtesting/*.py`, `quant_stack/indicators/*.py`, `quant_stack/live/*.py`
+2. **No LLM in deterministic engines**
+   - Don't import pydantic_ai, openai, anthropic in backtesting/indicators/live
+3. **No strategy-specific backtesters**
+   - Don't add `run_rsi_backtest()`, `run_bb_backtest()` to `polars_engine.py`
+4. **No live trading by default**
+   - Research tasks must work without credentials or live broker connections
+5. **No order-placement in research**
+   - Don't import execution/broker modules in research/intelligence paths
+6. **No private-key terms in research**
+   - Don't have `api_secret`, `private_key`, `password` in research code
+7. **No requesting derived timeframe datasets by default**
+   - Do not ask for separate 5m/15m/1h/4h parquet files when canonical 1m parquet exists.
+   - Build derived candles from 1m using deterministic resampling.
 
 ## Strategy Experiment Workflow
 1. Define hypothesis in YAML (see `examples/pipeline_queries/`)
@@ -50,6 +97,12 @@
 - All new code requires tests in `tests/`
 - Architecture boundary tests in `tests/architecture/test_architecture_boundaries.py`
 - Run: `uv run pytest tests/architecture/test_architecture_boundaries.py -q`
+- Multi-timeframe data code requires tests for:
+  - OHLCV aggregation correctness
+  - missing 1m candle behavior
+  - candle boundary alignment
+  - no-lookahead / higher-timeframe close visibility
+  - deterministic output from same input
 
 ## Agent Execution Protocol
 1. Read `AGENTS.md` before any work
@@ -57,3 +110,5 @@
 3. Run architecture tests after any import changes
 4. Never modify trading logic without explicit user request
 5. Never add live execution without explicit user request
+6. Before requesting market data from the user, check whether the requested timeframe can be synthesized from canonical 1m parquet.
+7. Prefer implementing or reusing deterministic resampling utilities over adding new timeframe-specific data files.
