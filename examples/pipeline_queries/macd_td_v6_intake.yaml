@@ -1,0 +1,70 @@
+query_id: macd_td_v6_intake_v1
+
+strategy:
+  name: macd_td_v6
+  hypothesis: >
+    MACD divergence on 15m may identify exhaustion/reversal entries, while
+    multi-timeframe TD9 signals and trailing stops may improve exit timing
+    and protect profits.
+
+symbols:
+  - ETH-USDT
+  - BTC-USDT
+  - BNB-USDT
+
+timeframes:
+  entry: 15m
+  management:
+    - 1m
+    - 3m
+    - 5m
+    - 30m
+
+params:
+  macd_fast_period: 12
+  macd_slow_period: 26
+  macd_signal_period: 9
+  macd_alt_fast_period: 8
+  macd_alt_slow_period: 17
+  macd_alt_signal_period: 6
+  atr_period: 14
+  ema_fast_period: 20
+  ema_slow_period: 60
+  rsi_period: 14
+  volume_ma_period: 20
+  min_divergence_strength: 0.25
+  enable_buy_filter: true
+  buy_rsi_threshold: 40
+  buy_volume_ratio: 0.8
+  enable_30min_clear: true
+  min_bars_before_action: 1
+  initial_add_size: 0.3
+  trailing_stop_atr: 2.0
+  trailing_stop_pct: 0.05
+  risk_per_trade: 0.05
+  max_position_value_pct: 0.20
+  tp_1m_ratio: 0.25
+  tp_3m_ratio: 0.20
+  tp_5m_ratio: 0.25
+
+execution_policy:
+  entry_execution: next_15m_open
+  lower_tf_alignment: asof_backward
+  extrema_confirmation: delayed_until_confirmed
+  stop_fill_policy: conservative_stop_price
+  same_bar_event_ordering: conservative_adverse_first
+  fee_bps: 5
+  slippage_bps: 2
+
+data:
+  mode: local_or_synthetic
+  require_live_api: false
+  source_timeframe: 1m
+  derived_timeframes:
+    - 3m
+    - 5m
+    - 15m
+    - 30m
+
+artifacts:
+  output_dir: artifacts/research/macd_td_v6_intake_v1
