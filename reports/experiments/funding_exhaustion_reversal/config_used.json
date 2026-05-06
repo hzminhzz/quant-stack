@@ -1,0 +1,68 @@
+{
+  "experiment_name": "funding_exhaustion_reversal_phase18f",
+  "status": "no_go_missing_data",
+  "strategy": "funding_exhaustion_reversal",
+  "harness": "quant_stack.cli.run_strategy_experiment",
+  "engine": "PolarsSignalBacktester",
+  "dataset_preference": {
+    "exchange": "bybit",
+    "symbol": "BTCUSDT",
+    "instrument_type": "linear_perp",
+    "timeframe": [
+      "1m",
+      "5m"
+    ]
+  },
+  "modes": {
+    "baseline": {
+      "use_context_filters": false,
+      "require_price_extension": true,
+      "require_momentum_turn": true,
+      "require_basis_confirmation": false,
+      "exit_on_rsi_midline": true
+    },
+    "context": {
+      "use_context_filters": true,
+      "funding_zscore_threshold": 2.0,
+      "require_price_extension": true,
+      "require_momentum_turn": true,
+      "require_basis_confirmation": false,
+      "exit_on_rsi_midline": true
+    },
+    "context_basis": {
+      "use_context_filters": true,
+      "funding_zscore_threshold": 2.0,
+      "require_basis_confirmation": true,
+      "basis_zscore_threshold": 1.5,
+      "require_price_extension": true,
+      "require_momentum_turn": true
+    }
+  },
+  "cost_assumptions": {
+    "fee_bps": "not_applied_no_run",
+    "slippage_bps": "not_applied_no_run"
+  },
+  "scan_summary": {
+    "workspace_parquet_count": 111,
+    "candidate_feature_dataset_count": 0,
+    "derivative_raw_dataset_count": 0,
+    "required_minimum_columns": [
+      "timestamp",
+      "close",
+      "symbol",
+      "timeframe",
+      "rsi_14",
+      "funding_zscore_30",
+      "momentum_slope_10"
+    ],
+    "additional_required_logic": [
+      "price_extension_20 or ret_60 when require_price_extension=true",
+      "basis_zscore_60 when require_basis_confirmation=true"
+    ],
+    "searched_locations": [
+      "/root/quant-factory/data",
+      "/root/quant-factory/artifacts",
+      "/root/quant-factory (recursive parquet scan)"
+    ]
+  }
+}

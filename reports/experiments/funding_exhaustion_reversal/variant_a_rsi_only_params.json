@@ -1,0 +1,7 @@
+{
+  "use_context_filters": false,
+  "require_price_extension": false,
+  "require_momentum_turn": false,
+  "require_basis_confirmation": false,
+  "exit_on_rsi_midline": true
+}

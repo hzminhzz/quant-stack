@@ -1,0 +1,201 @@
+{
+  "baseline_result": {
+    "artifact_paths": {
+      "segments_root": ""
+    },
+    "backtest_result": {
+      "generated_at": null,
+      "rows": 361,
+      "segments": [
+        {
+          "fold": null,
+          "metrics": {
+            "exposure": 0.0,
+            "max_drawdown": 0.0,
+            "profit_factor": 0.0,
+            "raw_metrics": {
+              "cagr": 0.0,
+              "cumulative_return": 0.0,
+              "gain_pain_ratio": 0.0,
+              "kelly_criterion": 0.0,
+              "max_consecutive_losing_days": 0,
+              "max_daily_drawdown": 0.0,
+              "max_drawdown": 0.0,
+              "smart_sharpe": 0.0,
+              "smart_sortino": 0.0,
+              "tail_ratio": null,
+              "time_in_market": 0.0
+            },
+            "sharpe": 0.0,
+            "total_return": 0.0,
+            "trade_count": 0.0,
+            "win_rate": 0.0
+          },
+          "name": "full",
+          "role": "test",
+          "rows": 361
+        }
+      ],
+      "trade_count": 0
+    },
+    "metrics": {
+      "exposure": 0.0,
+      "max_drawdown": 0.0,
+      "profit_factor": 0.0,
+      "raw_metrics": {
+        "segments": [
+          {
+            "exposure": 0.0,
+            "max_drawdown": 0.0,
+            "profit_factor": 0.0,
+            "raw_metrics": {
+              "cagr": 0.0,
+              "cumulative_return": 0.0,
+              "gain_pain_ratio": 0.0,
+              "kelly_criterion": 0.0,
+              "max_consecutive_losing_days": 0,
+              "max_daily_drawdown": 0.0,
+              "max_drawdown": 0.0,
+              "smart_sharpe": 0.0,
+              "smart_sortino": 0.0,
+              "tail_ratio": null,
+              "time_in_market": 0.0
+            },
+            "sharpe": 0.0,
+            "total_return": 0.0,
+            "trade_count": 0.0,
+            "win_rate": 0.0
+          }
+        ]
+      },
+      "sharpe": 0.0,
+      "total_return": 0.0,
+      "trade_count": 0.0,
+      "win_rate": 0.0
+    },
+    "mode": "baseline",
+    "params": {
+      "basis_zscore_threshold": 1.5,
+      "exit_on_rsi_midline": true,
+      "exit_rsi_midline": 50.0,
+      "funding_zscore_threshold": 2.0,
+      "max_spread_bps": null,
+      "price_extension_threshold": 0.02,
+      "require_basis_confirmation": false,
+      "require_momentum_turn": true,
+      "require_price_extension": true,
+      "rsi_overbought": 70.0,
+      "rsi_oversold": 30.0,
+      "use_context_filters": false
+    },
+    "strategy_name": "funding_exhaustion_reversal"
+  },
+  "context_result": {
+    "artifact_paths": {
+      "segments_root": ""
+    },
+    "backtest_result": {
+      "generated_at": null,
+      "rows": 361,
+      "segments": [
+        {
+          "fold": null,
+          "metrics": {
+            "exposure": 0.0,
+            "max_drawdown": 0.0,
+            "profit_factor": 0.0,
+            "raw_metrics": {
+              "cagr": 0.0,
+              "cumulative_return": 0.0,
+              "gain_pain_ratio": 0.0,
+              "kelly_criterion": 0.0,
+              "max_consecutive_losing_days": 0,
+              "max_daily_drawdown": 0.0,
+              "max_drawdown": 0.0,
+              "smart_sharpe": 0.0,
+              "smart_sortino": 0.0,
+              "tail_ratio": null,
+              "time_in_market": 0.0
+            },
+            "sharpe": 0.0,
+            "total_return": 0.0,
+            "trade_count": 0.0,
+            "win_rate": 0.0
+          },
+          "name": "full",
+          "role": "test",
+          "rows": 361
+        }
+      ],
+      "trade_count": 0
+    },
+    "metrics": {
+      "exposure": 0.0,
+      "max_drawdown": 0.0,
+      "profit_factor": 0.0,
+      "raw_metrics": {
+        "segments": [
+          {
+            "exposure": 0.0,
+            "max_drawdown": 0.0,
+            "profit_factor": 0.0,
+            "raw_metrics": {
+              "cagr": 0.0,
+              "cumulative_return": 0.0,
+              "gain_pain_ratio": 0.0,
+              "kelly_criterion": 0.0,
+              "max_consecutive_losing_days": 0,
+              "max_daily_drawdown": 0.0,
+              "max_drawdown": 0.0,
+              "smart_sharpe": 0.0,
+              "smart_sortino": 0.0,
+              "tail_ratio": null,
+              "time_in_market": 0.0
+            },
+            "sharpe": 0.0,
+            "total_return": 0.0,
+            "trade_count": 0.0,
+            "win_rate": 0.0
+          }
+        ]
+      },
+      "sharpe": 0.0,
+      "total_return": 0.0,
+      "trade_count": 0.0,
+      "win_rate": 0.0
+    },
+    "mode": "context",
+    "params": {
+      "basis_zscore_threshold": 1.5,
+      "exit_on_rsi_midline": true,
+      "exit_rsi_midline": 50.0,
+      "funding_zscore_threshold": 2.0,
+      "max_spread_bps": null,
+      "price_extension_threshold": 0.02,
+      "require_basis_confirmation": false,
+      "require_momentum_turn": true,
+      "require_price_extension": true,
+      "rsi_overbought": 70.0,
+      "rsi_oversold": 30.0,
+      "use_context_filters": true
+    },
+    "strategy_name": "funding_exhaustion_reversal"
+  },
+  "metric_deltas": {
+    "exposure": 0.0,
+    "max_drawdown": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "total_return": 0.0,
+    "trade_count": 0.0,
+    "win_rate": 0.0
+  },
+  "strategy_name": "funding_exhaustion_reversal",
+  "verdict": "inconclusive",
+  "warnings": [
+    "context mode produced zero closed trades",
+    "baseline mode produced zero closed trades",
+    "context mode exposure is near zero",
+    "total_return identical between baseline and context"
+  ]
+}

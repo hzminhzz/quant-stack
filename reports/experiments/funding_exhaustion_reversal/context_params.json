@@ -1,0 +1,8 @@
+{
+  "use_context_filters": true,
+  "funding_zscore_threshold": 2.0,
+  "require_price_extension": true,
+  "require_momentum_turn": true,
+  "require_basis_confirmation": false,
+  "exit_on_rsi_midline": true
+}

@@ -104,7 +104,17 @@ class QuantStackIndicatorTests(unittest.TestCase):
 
 class QuantStackStrategyTests(unittest.TestCase):
     def test_default_registry_contains_new_strategy_modules(self) -> None:
-        self.assertEqual(available_strategies(), ["bb_breakout", "grid", "rsi_sma"])
+        self.assertEqual(
+            available_strategies(),
+            [
+                "bb_breakout",
+                "forced_flow_band_reclaim",
+                "funding_exhaustion_reversal",
+                "grid",
+                "oi_confirmed_trend",
+                "rsi_sma",
+            ],
+        )
 
         rsi_module = get_strategy("rsi-sma")
         bb_module = get_strategy("bb_breakout")

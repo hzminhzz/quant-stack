@@ -1,0 +1,198 @@
+{
+  "baseline_result": {
+    "artifact_paths": {
+      "segments_root": ""
+    },
+    "backtest_result": {
+      "generated_at": null,
+      "rows": 44640,
+      "segments": [
+        {
+          "fold": null,
+          "metrics": {
+            "exposure": 0.0006272401433691756,
+            "max_drawdown": -0.05407933782497554,
+            "profit_factor": 1.2351365182638359,
+            "raw_metrics": {
+              "cagr": 0.034234910540521746,
+              "cumulative_return": 0.0028629854823791767,
+              "gain_pain_ratio": 1.2351365182638492,
+              "kelly_criterion": -0.7512520343061151,
+              "max_consecutive_losing_days": 1,
+              "max_daily_drawdown": -0.05407933782497554,
+              "max_drawdown": -0.05407933782497554,
+              "smart_sharpe": 0.4996199986441817,
+              "smart_sortino": 0.0,
+              "tail_ratio": null,
+              "time_in_market": 0.0006272401433691756
+            },
+            "sharpe": 0.4996199986441817,
+            "total_return": 0.0028629854823791767,
+            "trade_count": 2.0,
+            "win_rate": 0.5
+          },
+          "name": "full",
+          "role": "test",
+          "rows": 44640
+        }
+      ],
+      "trade_count": 2
+    },
+    "metrics": {
+      "exposure": 0.0006272401433691756,
+      "max_drawdown": -0.05407933782497554,
+      "profit_factor": 1.2351365182638359,
+      "raw_metrics": {
+        "segments": [
+          {
+            "exposure": 0.0006272401433691756,
+            "max_drawdown": -0.05407933782497554,
+            "profit_factor": 1.2351365182638359,
+            "raw_metrics": {
+              "cagr": 0.034234910540521746,
+              "cumulative_return": 0.0028629854823791767,
+              "gain_pain_ratio": 1.2351365182638492,
+              "kelly_criterion": -0.7512520343061151,
+              "max_consecutive_losing_days": 1,
+              "max_daily_drawdown": -0.05407933782497554,
+              "max_drawdown": -0.05407933782497554,
+              "smart_sharpe": 0.4996199986441817,
+              "smart_sortino": 0.0,
+              "tail_ratio": null,
+              "time_in_market": 0.0006272401433691756
+            },
+            "sharpe": 0.4996199986441817,
+            "total_return": 0.0028629854823791767,
+            "trade_count": 2.0,
+            "win_rate": 0.5
+          }
+        ]
+      },
+      "sharpe": 0.4996199986441817,
+      "total_return": 0.0028629854823791767,
+      "trade_count": 2.0,
+      "win_rate": 0.5
+    },
+    "mode": "baseline",
+    "params": {
+      "basis_zscore_threshold": 1.5,
+      "exit_on_rsi_midline": true,
+      "exit_rsi_midline": 50.0,
+      "funding_zscore_threshold": 2.0,
+      "max_spread_bps": null,
+      "price_extension_threshold": 0.02,
+      "require_basis_confirmation": false,
+      "require_momentum_turn": true,
+      "require_price_extension": true,
+      "rsi_overbought": 70.0,
+      "rsi_oversold": 30.0,
+      "use_context_filters": false
+    },
+    "strategy_name": "funding_exhaustion_reversal"
+  },
+  "context_result": {
+    "artifact_paths": {
+      "segments_root": ""
+    },
+    "backtest_result": {
+      "generated_at": null,
+      "rows": 44640,
+      "segments": [
+        {
+          "fold": null,
+          "metrics": {
+            "exposure": 0.00038082437275985666,
+            "max_drawdown": -0.05407933782497554,
+            "profit_factor": 0.0,
+            "raw_metrics": {
+              "cagr": -0.14354234933270127,
+              "cumulative_return": -0.013073664172001731,
+              "gain_pain_ratio": 0.0,
+              "kelly_criterion": 0.0,
+              "max_consecutive_losing_days": 1,
+              "max_daily_drawdown": -0.05407933782497554,
+              "max_drawdown": -0.05407933782497554,
+              "smart_sharpe": -3.4313544772271922,
+              "smart_sortino": 0.0,
+              "tail_ratio": null,
+              "time_in_market": 0.00038082437275985666
+            },
+            "sharpe": -3.4313544772271922,
+            "total_return": -0.013073664172001731,
+            "trade_count": 1.0,
+            "win_rate": 0.0
+          },
+          "name": "full",
+          "role": "test",
+          "rows": 44640
+        }
+      ],
+      "trade_count": 1
+    },
+    "metrics": {
+      "exposure": 0.00038082437275985666,
+      "max_drawdown": -0.05407933782497554,
+      "profit_factor": 0.0,
+      "raw_metrics": {
+        "segments": [
+          {
+            "exposure": 0.00038082437275985666,
+            "max_drawdown": -0.05407933782497554,
+            "profit_factor": 0.0,
+            "raw_metrics": {
+              "cagr": -0.14354234933270127,
+              "cumulative_return": -0.013073664172001731,
+              "gain_pain_ratio": 0.0,
+              "kelly_criterion": 0.0,
+              "max_consecutive_losing_days": 1,
+              "max_daily_drawdown": -0.05407933782497554,
+              "max_drawdown": -0.05407933782497554,
+              "smart_sharpe": -3.4313544772271922,
+              "smart_sortino": 0.0,
+              "tail_ratio": null,
+              "time_in_market": 0.00038082437275985666
+            },
+            "sharpe": -3.4313544772271922,
+            "total_return": -0.013073664172001731,
+            "trade_count": 1.0,
+            "win_rate": 0.0
+          }
+        ]
+      },
+      "sharpe": -3.4313544772271922,
+      "total_return": -0.013073664172001731,
+      "trade_count": 1.0,
+      "win_rate": 0.0
+    },
+    "mode": "context",
+    "params": {
+      "basis_zscore_threshold": 1.5,
+      "exit_on_rsi_midline": true,
+      "exit_rsi_midline": 50.0,
+      "funding_zscore_threshold": 2.0,
+      "max_spread_bps": null,
+      "price_extension_threshold": 0.02,
+      "require_basis_confirmation": false,
+      "require_momentum_turn": true,
+      "require_price_extension": true,
+      "rsi_overbought": 70.0,
+      "rsi_oversold": 30.0,
+      "use_context_filters": true
+    },
+    "strategy_name": "funding_exhaustion_reversal"
+  },
+  "metric_deltas": {
+    "exposure": -0.00024641577060931897,
+    "max_drawdown": 0.0,
+    "profit_factor": -1.2351365182638359,
+    "sharpe": -3.930974475871374,
+    "total_return": -0.015936649654380908,
+    "trade_count": -1.0,
+    "win_rate": -0.5
+  },
+  "strategy_name": "funding_exhaustion_reversal",
+  "verdict": "inconclusive",
+  "warnings": [
+    "context mode exposure is near zero"
+  ]
+}

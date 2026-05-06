@@ -54,13 +54,19 @@ class StrategyRegistry:
 
 def build_default_registry() -> StrategyRegistry:
     from quant_stack.strategies.bb_breakout import module as bb_breakout
+    from quant_stack.strategies.forced_flow_band_reclaim import module as forced_flow_band_reclaim
+    from quant_stack.strategies.funding_exhaustion_reversal import module as funding_exhaustion_reversal
     from quant_stack.strategies.grid import module as grid
+    from quant_stack.strategies.oi_confirmed_trend import module as oi_confirmed_trend
     from quant_stack.strategies.rsi_sma import module as rsi_sma
 
     registry = StrategyRegistry()
     registry.register(rsi_sma.strategy_module())
     registry.register(bb_breakout.strategy_module())
     registry.register(grid.strategy_module())
+    registry.register(forced_flow_band_reclaim.strategy_module())
+    registry.register(funding_exhaustion_reversal.strategy_module())
+    registry.register(oi_confirmed_trend.strategy_module())
     return registry
 
 

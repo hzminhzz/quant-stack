@@ -1,0 +1,4 @@
+mode,total_return,sharpe,max_drawdown,trade_count,win_rate,profit_factor,average_trade_return,exposure_time,average_holding_time,worst_trade,run_status
+baseline,,,,,,,,,,,not_executed_missing_dataset
+context,,,,,,,,,,,not_executed_missing_dataset
+context_basis,,,,,,,,,,,not_executed_missing_dataset
