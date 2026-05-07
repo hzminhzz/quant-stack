@@ -59,6 +59,7 @@ def build_default_registry() -> StrategyRegistry:
     from quant_stack.strategies.grid import module as grid
     from quant_stack.strategies.oi_confirmed_trend import module as oi_confirmed_trend
     from quant_stack.strategies.rsi_sma import module as rsi_sma
+    from quant_stack.strategies.smart_dca import module as smart_dca
 
     registry = StrategyRegistry()
     registry.register(rsi_sma.strategy_module())
@@ -67,6 +68,7 @@ def build_default_registry() -> StrategyRegistry:
     registry.register(forced_flow_band_reclaim.strategy_module())
     registry.register(funding_exhaustion_reversal.strategy_module())
     registry.register(oi_confirmed_trend.strategy_module())
+    registry.register(smart_dca.strategy_module())
     return registry
 
 
