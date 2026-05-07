@@ -226,5 +226,62 @@ class TestNoLiveTradingInResearch:
         assert not violations, f"Live trading imports in research: {violations}"
 
 
+class TestStrategyEngineSelection:
+    """Test that strategies declare capabilities and use correct engines."""
+
+    def test_all_strategies_declare_capabilities(self):
+        """Every strategy must declare capabilities."""
+        from quant_stack.strategies import get_strategy
+        
+        known_strategies = ["rsi_sma", "bb_breakout", "grid", "smart_dca"]
+        
+        missing = []
+        for name in known_strategies:
+            try:
+                module = get_strategy(name)
+                if hasattr(module, "SPEC"):
+                    spec = module.SPEC
+                    if not hasattr(spec, "capabilities"):
+                        missing.append(name)
+            except Exception:
+                pass
+        
+        assert not missing, f"Strategies missing capabilities: {missing}"
+
+    def test_grid_dca_strategies_cannot_use_vectorbt(self):
+        """Strategies with multi_leg or avg_price_dependent must not use vectorbt."""
+        from quant_stack.strategies import get_strategy
+        
+        known_strategies = ["rsi_sma", "bb_breakout", "grid", "smart_dca"]
+        
+        violations = []
+        for name in known_strategies:
+            try:
+                module = get_strategy(name)
+                if hasattr(module, "SPEC"):
+                    spec = module.SPEC
+                    cap = getattr(spec, "capabilities", None)
+                    if cap:
+                        if cap.multi_leg or cap.average_price_dependent:
+                            if spec.default_engine == "vectorbt":
+                                violations.append(name)
+            except Exception:
+                pass
+        
+        assert not violations, f"Multi-leg strategies using vectorbt: {violations}"
+
+    def test_engine_selector_respects_capabilities(self):
+        """select_engine should return engine based on capabilities."""
+        from quant_stack.strategies.specs import select_engine
+        from quant_stack.strategies.smart_dca.spec import SPEC as smart_dca_spec
+        from quant_stack.strategies.rsi_sma.spec import SPEC as rsi_sma_spec
+        
+        # smart_dca should use grid_dca (explicit override)
+        assert select_engine(smart_dca_spec) == "grid_dca"
+        
+        # rsi_sma with vectorized should use vectorbt
+        assert select_engine(rsi_sma_spec) == "vectorbt"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-q"])

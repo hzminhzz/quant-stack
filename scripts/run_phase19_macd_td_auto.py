@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Run Phase 19 autonomous research pipeline for MACD-TD V6."""
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
@@ -9,12 +11,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from quant_stack.research.phase_orchestration.phase19_runner import run_phase19_pipeline
 
 
-def main() -> int:
-    if len(sys.argv) < 2:
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+
+    if args and args[0] in {"-h", "--help"}:
+        print("Usage: python run_phase19_macd_td_auto.py <config_yaml_path>")
+        return 0
+
+    if len(args) < 1:
         print("Usage: python run_phase19_macd_td_auto.py <config_yaml_path>")
         return 1
 
-    config_path = Path(sys.argv[1])
+    config_path = Path(args[0])
 
     if not config_path.exists():
         print(f"Error: Config file not found: {config_path}")

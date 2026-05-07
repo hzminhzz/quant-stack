@@ -1,9 +1,11 @@
 # quant-stack Agent Governance
 
+**CRITICAL: Only touch `quant_stack/` for new code and substantive logic. All other root directories are archived or for artifacts only.**
+
 ## Core Philosophy
 - **Deterministic first**: Core engines (backtesting, indicators, live tick processing) must be pure, deterministic, and testable without external dependencies.
 - **LLMs for planning, not execution**: Use LLMs for research planning, idea generation, and critique—but never inside deterministic trading engines.
-- **Strategy-agnostic core**: The `quant_stack/backtesting` module provides generic backtest infrastructure. Strategy-specific logic lives in `quant_stack/strategies/` or `strategy_families/`.
+- **Strategy-agnostic core**: The `quant_stack/backtesting` module provides generic backtest infrastructure. Strategy-specific logic lives in `quant_stack/strategies/`.
 - **No pandas in core**: Core paths (`quant_stack/backtesting`, `quant_stack/indicators`, `quant_stack/live` tick loops) must use Polars or native Python. Pandas is allowed only in research/optimization exploration scripts.
 - **No Polars in live tick step**: Live tick processing must use native Python or Polars without complex transformations. Keep it simple and fast.
 
@@ -14,6 +16,14 @@
 - `quant_stack/strategies/` - Strategy implementations (rsi_sma, bb_breakout, grid, etc.)
 - `quant_stack/intelligence/` - Market intelligence gathering (OKX sources, scoring, normalization)
 - `quant_stack/workflows/` - Workflow orchestration (actions, triggers, cooldown)
+
+## Canonical Path Rules
+
+- **`quant_stack/` is the canonical package root.** New reusable code should go there unless the task is explicitly about legacy compatibility.
+- **Root-level scripts are thin entrypoints only.** Do not place new substantive backtesting, reporting, optimization, or orchestration logic in root scripts.
+- **Do not create custom strategy-specific backtesters or custom report systems** when a canonical `quant_stack` workflow already exists.
+- **Every public strategy backtest path should normalize to `BacktestResult`.**
+- **When uncertain, inspect canonical workflow files first**: `quant_stack/strategies/registry.py`, `quant_stack/backtesting/`, `quant_stack/data/`, `quant_stack/features/`, `quant_stack/workflows/`, and `quant_stack/research/`.
 
 ### Forbidden in Core
 - `quant_stack/backtesting/` - No strategy-specific backtesters, no LLM imports, no pandas
@@ -53,7 +63,7 @@
   - Exchange-native candle validation or reconciliation
 
 - **Cache policy**
-  - Derived higher-timeframe candles may be cached under artifacts/cache or a dedicated derived-data cache.
+  - Derived higher-timeframe candles may be cached under _artifacts/cache or a dedicated derived-data cache.
   - Cached derived candles must be reproducible from canonical 1m parquet.
   - Cache keys should include symbol, source dataset id/path, timeframe, session/calendar rule, and resampling version.
   - Do not treat derived caches as source-of-truth raw data.
@@ -76,20 +86,20 @@
    - Build derived candles from 1m using deterministic resampling.
 
 ## Strategy Experiment Workflow
-1. Define hypothesis in YAML (see `examples/pipeline_queries/`)
+1. Define hypothesis in YAML (see `_archive/examples/pipeline_queries/`)
 2. Generate deterministic fixtures (see `quant_stack/research/fixtures.py`)
 3. Run baseline vs candidate with context gating
 4. Validate no-lookahead, no-future-leakage
 5. Artifact output includes proposed-only optimization record (never auto-executed)
 
 ## Legacy Code Policy
-- `legacy/` - Deprecated code, do not extend
-- `strategy_families/` - Legacy pattern, prefer `quant_stack/strategies/`
+- `_archive/legacy/` - Deprecated code, do not extend
+- `_archive/strategy_families/` - Deprecated code
 - Do not move legacy modules to core paths
 - Do not import legacy modules in new core code
 
 ## Artifact Policy
-- Research artifacts go to `artifacts/{experiment_name}/`
+- Research artifacts go to `_artifacts/{experiment_name}/`
 - Manifest always includes `timestamp: null` and `output_dir: "."` for determinism
 - Optimization requests are always `status: "proposed"` - never auto-execute
 
@@ -104,11 +114,118 @@
   - no-lookahead / higher-timeframe close visibility
   - deterministic output from same input
 
+## Engine Selection Is Mandatory
+Before implementing or testing any strategy, classify it using its `StrategyCapabilities`.
+
+### Engine decision tree
+- **vectorbt** (vectorized): Only for simple signal strategies where entries/exits are independent, position is long/short/flat, no DCA, no pyramiding, no path-dependent state
+- **polars signal**: For strategies producing clean entry/exit/position arrays needing repo-standard metrics
+- **stateful**: For strategies with internal state, cooldowns, trailing stops, partial exits, re-entry gates, position sizing changes
+- **grid_dca**: For strategies accumulating multiple entries, average price matters, DCA levels, multiple engines, basket exits
+- **event_driven**: For strategies needing order type handling (limit/market), margin/funding/liquidation, bid/ask fill simulation
+
+### Forbidden: vectorbt for complex strategies
+Vectorbt/vectorized engines are **FORBIDDEN** for strategies with:
+- DCA or grid logic
+- Pyramiding or multi-leg baskets
+- Average-price-dependent exits
+- Partial exits
+- Order-level state machines
+- Margin/funding/liquidation behavior
+- Bid/ask-sensitive fill logic
+
+### Required: Every strategy must declare capabilities
+Add `StrategyCapabilities` to every strategy spec:
+```python
+from quant_stack.strategies.specs import StrategySpec, StrategyCapabilities
+
+SPEC = StrategySpec(
+    name="my_strategy",
+    default_engine="polars",
+    capabilities=StrategyCapabilities(
+        path_dependent=False,
+        multi_leg=False,
+        average_price_dependent=False,
+        supports_vectorized=True,
+    ),
+)
+```
+
+Use `select_engine(spec)` to get the correct engine for any strategy.
+
+## Data and Backtest Cost Control
+
+**Critical: Agents must not read large market data files into context.**
+
+### Forbidden Actions (Token Burn)
+- Opening full CSV/parquet files into LLM context
+- Printing full DataFrames
+- Inspecting more than schema, row count, and first/last 5 rows
+- Using LLM to reason over raw market data row-by-row
+- Creating ad-hoc data inspection scripts for every backtest
+- Reading full artifact parquet files into chat context
+
+### Correct Workflow
+```
+LLM → chooses command → Python executes → artifacts saved → LLM reads summary.json
+```
+
+### For Large CSV/Parquet Files
+- Do NOT open the full file
+- Do NOT print full DataFrames
+- Use `scan_ohlcv_parquet()` for lazy loading when possible
+- Inspect only: schema, row count, null count, min/max timestamp, first/last 5 rows
+
+### After a Run, Read Only
+- `summary.json` - metrics summary
+- `run_config.json` - configuration used
+- First/last 20 trades if debugging
+- Small logs only
+
+### Canonical Backtest Command
+```bash
+uv run python -m quant_stack.cli.main backtest \
+  --data-path /path/to/data.parquet \
+  --strategy smart_dca \
+  --start 2020-01-01 \
+  --end 2024-12-31
+```
+
+Do NOT ask the user to provide data paths repeatedly. Use known datasets from `quant_stack/data/` or manifest.
+
+### Inspect Data Cheaply
+For data inspection, use minimal output:
+```bash
+uv run python -c "import polars as pl; df = pl.scan_parquet('data.parquet'); print(df.schema)"
+```
+
+---
+
 ## Agent Execution Protocol
 1. Read `AGENTS.md` before any work
-2. Check architecture boundaries before adding imports
-3. Run architecture tests after any import changes
-4. Never modify trading logic without explicit user request
-5. Never add live execution without explicit user request
-6. Before requesting market data from the user, check whether the requested timeframe can be synthesized from canonical 1m parquet.
-7. Prefer implementing or reusing deterministic resampling utilities over adding new timeframe-specific data files.
+2. Prefer canonical paths under `quant_stack/` before inspecting legacy or root compatibility paths
+3. Check architecture boundaries before adding imports
+4. Run architecture tests after any import changes
+5. Never modify trading logic without explicit user request
+6. Never add live execution without explicit user request
+7. Before requesting market data from the user, check whether the requested timeframe can be synthesized from canonical 1m parquet.
+8. Prefer implementing or reusing deterministic resampling utilities over adding new timeframe-specific data files.
+
+## Repo Skills
+
+This repo provides specialized skills for quant-stack workflows. Use them via `load_skills` parameter:
+
+| Skill | Use For |
+|-------|---------|
+| `quant-stack-executor` | Backtesting, dataset builds, strategy experiments |
+| `quant-stack-boundary-guardian` | Checking architecture boundaries (no pandas in core, no LLM in engines) |
+| `quant-stack-data-timeframe-guardian` | Multi-timeframe alignment, no-lookahead validation |
+| `quant-stack-acceptance-runner` | Acceptance query workflows, context gating |
+| `quant-stack-skill-creator` | Creating/ updating repo skills |
+
+Example usage in task():
+```python
+task(category="deep", load_skills=["quant-stack-executor"], prompt="Run backtest...")
+```
+
+Skills are also available globally in ~/.config/opencode/skills/.

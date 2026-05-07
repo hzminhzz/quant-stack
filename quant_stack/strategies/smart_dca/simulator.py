@@ -8,6 +8,7 @@ import numpy as np
 
 from quant_stack.strategies.smart_dca.params import (
     BUY,
+    SELL,
     ENGINE_FB,
     ENGINE_FS,
     ENGINE_SB,

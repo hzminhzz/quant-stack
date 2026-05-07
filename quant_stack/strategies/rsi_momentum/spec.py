@@ -1,7 +1,7 @@
 """RSI Momentum strategy specification."""
 
 from __future__ import annotations
-from quant_stack.strategies.specs import StrategySpec
+from quant_stack.strategies.specs import StrategySpec, StrategyCapabilities
 
 def get_spec() -> StrategySpec:
     return StrategySpec(
@@ -9,5 +9,10 @@ def get_spec() -> StrategySpec:
         version="1.0.0",
         timeframe="4h",
         signal_mode="vectorized",
-        default_engine="polars"
+        default_engine="polars",
+        capabilities=StrategyCapabilities(
+            path_dependent=False,
+            multi_leg=False,
+            supports_vectorized=True,
+        ),
     )

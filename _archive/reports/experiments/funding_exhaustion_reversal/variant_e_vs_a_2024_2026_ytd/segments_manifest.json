@@ -1,0 +1,13 @@
+{
+  "segments": [
+    {
+      "boundary_rule": "[start, end) for internal splits; explicit test_end inclusive",
+      "end_timestamp": "2026-05-06 17:42:00+00:00",
+      "fold": null,
+      "name": "full",
+      "role": "test",
+      "row_count": 1233703,
+      "start_timestamp": "2024-01-01 00:00:00+00:00"
+    }
+  ]
+}

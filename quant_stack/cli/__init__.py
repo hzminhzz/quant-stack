@@ -1,3 +1,5 @@
 """Command-line entry points for quant_stack workflows."""
 
-__all__: list[str] = []
+from quant_stack.cli.main import main
+
+__all__ = ["main"]

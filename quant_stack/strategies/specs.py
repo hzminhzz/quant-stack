@@ -8,7 +8,19 @@ import polars as pl
 from pydantic import BaseModel, Field
 
 SignalMode = Literal["vectorized", "path_dependent", "live_stateful"]
-BacktestEngineName = Literal["polars", "vectorbt"]
+BacktestEngineName = Literal["polars", "vectorbt", "stateful", "grid_dca", "event_driven"]
+
+
+class StrategyCapabilities(BaseModel):
+    """Engine selection criteria for a strategy."""
+
+    path_dependent: bool = False
+    multi_leg: bool = False
+    average_price_dependent: bool = False
+    supports_vectorized: bool = True
+    requires_bid_ask: bool = False
+    requires_event_log: bool = False
+    requires_margin_model: bool = False
 
 
 class StrategySpec(BaseModel):
@@ -20,6 +32,7 @@ class StrategySpec(BaseModel):
     asset_class: str = "crypto"
     signal_mode: SignalMode
     default_engine: BacktestEngineName
+    capabilities: StrategyCapabilities = Field(default_factory=StrategyCapabilities)
 
 
 class SignalBuilder(Protocol):
@@ -36,4 +49,31 @@ class LiveStateAdapter(Protocol):
     def step(self, row: object) -> object: ...
 
 
-__all__ = ["BacktestEngineName", "LiveStateAdapter", "SignalBuilder", "SignalMode", "StrategySpec"]
+__all__ = [
+    "BacktestEngineName",
+    "LiveStateAdapter",
+    "SignalBuilder",
+    "SignalMode",
+    "StrategyCapabilities",
+    "StrategySpec",
+    "select_engine",
+]
+
+
+def select_engine(spec: StrategySpec) -> BacktestEngineName:
+    """Select the appropriate backtest engine based on strategy capabilities."""
+    cap = spec.capabilities
+    
+    if spec.default_engine not in ("polars", "vectorbt"):
+        return spec.default_engine
+    
+    if cap.multi_leg or cap.average_price_dependent:
+        return "grid_dca"
+    
+    if cap.path_dependent or cap.requires_event_log:
+        return "stateful"
+    
+    if cap.supports_vectorized:
+        return "vectorbt"
+    
+    return "polars"

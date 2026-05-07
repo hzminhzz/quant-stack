@@ -1,0 +1,25 @@
+{
+  "total_return": 0.1902357445558016,
+  "sharpe": 4.671723041552823,
+  "max_drawdown": -0.021234489770092402,
+  "trade_count": 4894,
+  "exposure": 0.2510276768098276,
+  "win_rate": 0.668369431957499,
+  "profit_factor": 1.1900621793804798,
+  "raw_metrics": {
+    "cumulative_return": 0.1902357445558016,
+    "cagr": 0.2549672356015642,
+    "time_in_market": 0.2510276768098276,
+    "max_drawdown": -0.021234489770092402,
+    "max_daily_drawdown": -0.011806721789223632,
+    "max_consecutive_losing_days": 6,
+    "smart_sharpe": 4.671723041552823,
+    "smart_sortino": 6.5947545469027204,
+    "tail_ratio": 1.194191382689617,
+    "gain_pain_ratio": 1.9352808990931833,
+    "kelly_criterion": 0.2870285108232409
+  },
+  "dataset_rows": 273189,
+  "dataset_start": "2017-01-02 23:00:00+00:00",
+  "dataset_end": "2017-10-09 20:19:00+00:00"
+}
