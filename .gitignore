@@ -14,12 +14,34 @@ wheels/
 .env.*
 !.env.example
 
-# Data and Artifacts
+# Data and Artifacts (LLM should ignore these)
 Data/
 data/
 artifacts/
+_artifacts/
+reports/
 scratch/
 *.log
-*.parquet
+# Large market datasets (keep fixtures explicit if needed)
+data/**/*.parquet
+Data/**/*.parquet
+artifacts/**/*.parquet
+_artifacts/**/*.parquet
+reports/**/*.parquet
+!tests/fixtures/**/*.parquet
 .agents/
 .ipynb_checkpoints/
+.pytest_cache/
+
+# Archive (moved to separate repo or archive)
+_archive/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

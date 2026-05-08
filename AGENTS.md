@@ -202,6 +202,7 @@ Available commands:
 | `research` | Research with paper context | `--paper-sources crossref,openalex` |
 | `acceptance` | Phase 17 acceptance query | `--query <yaml> --output-dir artifacts/` |
 | `inspect-data` | Inspect parquet schema/stats | `--path <parquet>` |
+| `duckdb-query` | Out-of-core DuckDB SQL staging to parquet | `--query "SELECT ..." --output-path artifacts/staged.parquet` |
 
 Do NOT use old script paths. Always use the CLI.
 

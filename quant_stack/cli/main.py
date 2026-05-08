@@ -23,6 +23,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "acceptance",
             "phase19",
             "inspect-data",
+            "duckdb-query",
             "open-report",
             "api-tools",
         ],
@@ -43,6 +44,7 @@ def _dispatch(command: str) -> CommandMain:
         "acceptance": ("quant_stack.cli.run_acceptance", "main"),
         "phase19": ("quant_stack.cli.run_phase19", "main"),
         "inspect-data": ("quant_stack.cli.inspect_data", "main"),
+        "duckdb-query": ("quant_stack.cli.run_duckdb_query", "main"),
         "open-report": ("quant_stack.cli.open_report", "main"),
         "api-tools": ("quant_stack.cli.run_api_tools", "main"),
     }
