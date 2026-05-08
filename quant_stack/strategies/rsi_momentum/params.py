@@ -13,3 +13,8 @@ class RSIMomentumParams(BaseModel):
     fee_bps: float = Field(5.0)
     slippage_bps: float = Field(2.0)
     execution_lag_bars: int = Field(1)
+    use_bb_filter: bool = Field(False)
+    bb_period: int = Field(20)
+    bb_std: float = Field(2.0)
+    bb_width_percentile: float = Field(0.25)
+    bb_width_lookback: int = Field(125)

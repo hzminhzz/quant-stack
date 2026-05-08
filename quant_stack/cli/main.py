@@ -24,6 +24,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "phase19",
             "inspect-data",
             "open-report",
+            "api-tools",
         ],
         help="Canonical workflow command to run",
     )
@@ -43,6 +44,7 @@ def _dispatch(command: str) -> CommandMain:
         "phase19": ("quant_stack.cli.run_phase19", "main"),
         "inspect-data": ("quant_stack.cli.inspect_data", "main"),
         "open-report": ("quant_stack.cli.open_report", "main"),
+        "api-tools": ("quant_stack.cli.run_api_tools", "main"),
     }
     module_name, attr = mapping[command]
     module = importlib.import_module(module_name)

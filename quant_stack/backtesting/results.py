@@ -7,7 +7,6 @@ from typing import Any
 import polars as pl
 from pydantic import BaseModel, ConfigDict, Field
 
-
 class BacktestResult(BaseModel):
     """Normalized output from a backtesting engine."""
 

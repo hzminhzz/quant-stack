@@ -182,22 +182,47 @@ LLM → chooses command → Python executes → artifacts saved → LLM reads su
 - First/last 20 trades if debugging
 - Small logs only
 
-### Canonical Backtest Command
+### Canonical CLI Commands
+
+All tasks must use the unified CLI entrypoint:
+
 ```bash
-uv run python -m quant_stack.cli.main backtest \
-  --data-path /path/to/data.parquet \
-  --strategy smart_dca \
-  --start 2020-01-01 \
-  --end 2024-12-31
+uv run python -m quant_stack.cli.main <command> [options]
 ```
 
-Do NOT ask the user to provide data paths repeatedly. Use known datasets from `quant_stack/data/` or manifest.
+Available commands:
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `backtest` | Single-strategy backtest | `--data-path <parquet> --strategy rsi_sma --start 2024-01-01 --end 2024-12-31` |
+| `experiment` | Strategy comparison | `--config <yaml> --output-dir artifacts/` |
+| `walk-forward` | Walk-forward optimization | `--config <yaml> --output-dir artifacts/` |
+| `phase19` | Autonomous research pipeline | `--config <yaml>` |
+| `build-bybit-dataset` | Market/feature dataset build | `--symbol BTCUSDT --timeframe 1m --output-dir artifacts/` |
+| `research` | Research with paper context | `--paper-sources crossref,openalex` |
+| `acceptance` | Phase 17 acceptance query | `--query <yaml> --output-dir artifacts/` |
+| `inspect-data` | Inspect parquet schema/stats | `--path <parquet>` |
+
+Do NOT use old script paths. Always use the CLI.
 
 ### Inspect Data Cheaply
 For data inspection, use minimal output:
 ```bash
 uv run python -c "import polars as pl; df = pl.scan_parquet('data.parquet'); print(df.schema)"
 ```
+
+---
+
+## Trade Idea Automation
+
+When user submits a trade idea (new strategy concept or modifications):
+1. **Automatically run Phase 17 acceptance** before proposing any optimization:
+   ```bash
+   uv run python -m quant_stack.cli.main acceptance --query <yaml> --output-dir _artifacts/<idea_name>/
+   ```
+2. Use `quant-stack-acceptance-runner` skill
+3. Report validation results (pass/fail, metric deltas) before proceeding
+4. Output artifacts to `_artifacts/{experiment_name}/`
 
 ---
 

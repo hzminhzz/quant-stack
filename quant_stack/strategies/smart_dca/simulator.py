@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -31,6 +32,97 @@ REASON_LABELS = {
     6: "friday_close",
     7: "max_total_pnl_close",
 }
+
+
+@dataclass(frozen=True)
+class SmartDCAArrayContract:
+    """Preallocated trade-array contract for deterministic tool boundaries."""
+
+    equity: np.ndarray
+    realized_pnl: np.ndarray
+    open_pnl: np.ndarray
+    net_lot: np.ndarray
+    trade_time_idx: np.ndarray
+    trade_engine: np.ndarray
+    trade_side: np.ndarray
+    trade_action: np.ndarray
+    trade_price: np.ndarray
+    trade_lot: np.ndarray
+    trade_reason: np.ndarray
+    trade_count: int
+    trade_capacity: int
+
+    def to_legacy_dict(self) -> Dict[str, np.ndarray]:
+        """Return legacy-shaped arrays by slicing preallocated trade buffers."""
+
+        used = self.trade_count
+        return {
+            "equity": self.equity,
+            "realized_pnl": self.realized_pnl,
+            "open_pnl": self.open_pnl,
+            "net_lot": self.net_lot,
+            "trade_time_idx": self.trade_time_idx[:used],
+            "trade_engine": self.trade_engine[:used],
+            "trade_side": self.trade_side[:used],
+            "trade_action": self.trade_action[:used],
+            "trade_price": self.trade_price[:used],
+            "trade_lot": self.trade_lot[:used],
+            "trade_reason": self.trade_reason[:used],
+        }
+
+
+def build_preallocated_contract(result: Dict[str, np.ndarray], *, extra_trade_capacity: int = 0) -> SmartDCAArrayContract:
+    """Pack legacy simulator output into a preallocated trade-array contract."""
+
+    trade_count = int(len(result["trade_time_idx"]))
+    trade_capacity = max(trade_count + max(0, extra_trade_capacity), trade_count, 1)
+
+    trade_time_idx = np.empty(trade_capacity, dtype=np.int64)
+    trade_engine = np.empty(trade_capacity, dtype=np.int64)
+    trade_side = np.empty(trade_capacity, dtype=np.int64)
+    trade_action = np.empty(trade_capacity, dtype=np.int64)
+    trade_price = np.empty(trade_capacity, dtype=np.float64)
+    trade_lot = np.empty(trade_capacity, dtype=np.float64)
+    trade_reason = np.empty(trade_capacity, dtype=np.int64)
+
+    if trade_count > 0:
+        trade_time_idx[:trade_count] = result["trade_time_idx"]
+        trade_engine[:trade_count] = result["trade_engine"]
+        trade_side[:trade_count] = result["trade_side"]
+        trade_action[:trade_count] = result["trade_action"]
+        trade_price[:trade_count] = result["trade_price"]
+        trade_lot[:trade_count] = result["trade_lot"]
+        trade_reason[:trade_count] = result["trade_reason"]
+
+    return SmartDCAArrayContract(
+        equity=result["equity"],
+        realized_pnl=result["realized_pnl"],
+        open_pnl=result["open_pnl"],
+        net_lot=result["net_lot"],
+        trade_time_idx=trade_time_idx,
+        trade_engine=trade_engine,
+        trade_side=trade_side,
+        trade_action=trade_action,
+        trade_price=trade_price,
+        trade_lot=trade_lot,
+        trade_reason=trade_reason,
+        trade_count=trade_count,
+        trade_capacity=trade_capacity,
+    )
+
+
+def simulate_smart_dca_contract(
+    timestamps: np.ndarray,
+    bid: np.ndarray,
+    ask: np.ndarray,
+    cfg: SmartDCAParams,
+    *,
+    extra_trade_capacity: int = 0,
+) -> SmartDCAArrayContract:
+    """Run simulator and return preallocated contract output."""
+
+    legacy = simulate_smart_dca(timestamps, bid, ask, cfg)
+    return build_preallocated_contract(legacy, extra_trade_capacity=extra_trade_capacity)
 
 
 def configs_to_arrays(cfg: SmartDCAParams) -> Tuple[np.ndarray, ...]:
@@ -380,4 +472,11 @@ def simulate_smart_dca(
     }
 
 
-__all__ = ["simulate_smart_dca", "REASON_LABELS", "FIB_LOTS"]
+__all__ = [
+    "FIB_LOTS",
+    "REASON_LABELS",
+    "SmartDCAArrayContract",
+    "build_preallocated_contract",
+    "simulate_smart_dca",
+    "simulate_smart_dca_contract",
+]

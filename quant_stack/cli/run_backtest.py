@@ -18,6 +18,7 @@ from quant_stack.backtesting import CostModel, PolarsSignalBacktester
 from quant_stack.data import load_ohlcv_parquet
 from quant_stack.reporting.backtest_report import GateConfig, ReportPolicy, write_backtest_artifacts
 from quant_stack.strategies import get_strategy
+from quant_stack.strategies.specs import validate_engine_compatibility
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -90,11 +91,12 @@ def main(argv: list[str] | None = None) -> None:
     df = _filter_by_date(df, args.start, args.end)
 
     strategy = get_strategy(args.strategy)
+    validate_engine_compatibility(strategy.spec, "polars")
     params = strategy.validate_params(json.loads(args.params_json))
     signals = strategy.build_signals(df, params)
 
-    cost_model = CostModel(fee_rate=args.fee_rate, initial_capital=args.initial_capital)
-    result = PolarsSignalBacktester(cost_model=cost_model).run(signals)
+    cost_model = CostModel(fee_rate=args.fee_rate, slippage_rate=0.0)
+    result = PolarsSignalBacktester(initial_capital=args.initial_capital, cost_model=cost_model).run(signals)
 
     if args.output_dir:
         out_dir = Path(args.output_dir)

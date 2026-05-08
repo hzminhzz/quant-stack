@@ -11,6 +11,10 @@ SignalMode = Literal["vectorized", "path_dependent", "live_stateful"]
 BacktestEngineName = Literal["polars", "vectorbt", "stateful", "grid_dca", "event_driven"]
 
 
+class EngineCompatibilityError(ValueError):
+    """Raised when a strategy is incompatible with a requested engine."""
+
+
 class StrategyCapabilities(BaseModel):
     """Engine selection criteria for a strategy."""
 
@@ -51,13 +55,37 @@ class LiveStateAdapter(Protocol):
 
 __all__ = [
     "BacktestEngineName",
+    "EngineCompatibilityError",
     "LiveStateAdapter",
     "SignalBuilder",
     "SignalMode",
     "StrategyCapabilities",
     "StrategySpec",
+    "validate_engine_compatibility",
     "select_engine",
 ]
+
+
+def validate_engine_compatibility(spec: StrategySpec, engine: BacktestEngineName) -> None:
+    """Reject invalid strategy/engine combinations before execution."""
+
+    cap = spec.capabilities
+    if engine == "polars" and (cap.path_dependent or cap.multi_leg or cap.average_price_dependent):
+        raise EngineCompatibilityError(
+            f"strategy '{spec.name}' is path-dependent/multi-leg; polars engine is incompatible"
+        )
+    if engine == "vectorbt" and (cap.multi_leg or cap.average_price_dependent):
+        raise EngineCompatibilityError(
+            f"strategy '{spec.name}' is multi-leg/average-price-dependent; vectorbt engine is incompatible"
+        )
+    if engine == "stateful" and not (cap.path_dependent or cap.requires_event_log):
+        raise EngineCompatibilityError(
+            f"strategy '{spec.name}' does not require stateful execution; choose polars/vectorbt"
+        )
+    if engine == "grid_dca" and not (cap.multi_leg or cap.average_price_dependent):
+        raise EngineCompatibilityError(
+            f"strategy '{spec.name}' does not declare grid/DCA capabilities"
+        )
 
 
 def select_engine(spec: StrategySpec) -> BacktestEngineName:
