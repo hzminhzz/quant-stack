@@ -25,6 +25,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "inspect-data",
             "duckdb-query",
             "open-report",
+            "diagnostic-report",
             "api-tools",
         ],
         help="Canonical workflow command to run",
@@ -46,6 +47,7 @@ def _dispatch(command: str) -> CommandMain:
         "inspect-data": ("quant_stack.cli.inspect_data", "main"),
         "duckdb-query": ("quant_stack.cli.run_duckdb_query", "main"),
         "open-report": ("quant_stack.cli.open_report", "main"),
+        "diagnostic-report": ("quant_stack.cli.run_diagnostic_report", "main"),
         "api-tools": ("quant_stack.cli.run_api_tools", "main"),
     }
     module_name, attr = mapping[command]

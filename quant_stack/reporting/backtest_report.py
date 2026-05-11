@@ -11,6 +11,8 @@ from typing import Any
 import polars as pl
 from pydantic import BaseModel, Field
 
+from quant_stack.reporting.ml4t_diagnostic import export_ml4t_diagnostic_artifacts
+
 
 class ReportPolicy(str, Enum):
     PASS_ONLY = "pass_only"
@@ -164,6 +166,14 @@ def write_backtest_artifacts(
         artifacts["trades.parquet"] = trades_path
     else:
         trades_df = None
+
+    ml4t_artifacts = export_ml4t_diagnostic_artifacts(
+        result_frame=result_frame,
+        output_dir=output_dir,
+        run_config=run_config,
+        trades_df=trades_df,
+    )
+    artifacts.update(ml4t_artifacts)
     
     # Run pipeline gate
     if gate_config is None:
